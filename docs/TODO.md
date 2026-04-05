@@ -37,8 +37,9 @@
 - [x] Implement per-action `required` and `continue_on_failure` logic
 
 ## 4) Actions (Live + Dry Run)
-- [ ] Location step with 8s timeout
-- [ ] SMS step (sequential fanout, per recipient logging, 10s per recipient)
+- [x] Location step with configurable timeout (`location_timeout_seconds`, default 8s)
+- [x] SMS step (sequential fanout, per recipient logging)
+- [x] Intent launch step (`IntentActionSpec`, live + dry-run behavior)
 - [ ] Message-app provider step (20s timeout, capability checks, unavailable fallback)
 - [ ] Uninstall step via Shizuku (`pm uninstall --user 0 <package>`, 15s each)
 - [ ] Delete step via Shizuku (`rm`/`rmdir` contracts, 15s each target)
@@ -91,6 +92,7 @@
 - [ ] Profile:
   - [ ] Single settings form
   - [ ] cancel-window duration setting (`cancel_window_seconds`)
+  - [ ] action timeout settings (`location_timeout_seconds`, `sms_timeout_seconds`, `intent_timeout_seconds`)
   - [ ] action/provider picker and provider test actions
   - [ ] action policy controls (enabled/required/continue/order)
   - [ ] advanced shell command editor (add/edit/reorder)

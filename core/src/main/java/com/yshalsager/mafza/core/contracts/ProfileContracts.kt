@@ -57,7 +57,7 @@ data class IntentActionSpec(
     val activity_name: String?,
     val extras_json: String?,
     val flags: List<String>,
-    val timeout_seconds: Int,
+    val timeout_seconds: Int = 20,
     val continue_on_failure: Boolean,
     val enabled: Boolean
 )
@@ -68,6 +68,9 @@ data class EmergencyProfile(
     val notify_target: String = "",
     val message_template: String = "",
     val cancel_window_seconds: Int = 2,
+    val location_timeout_seconds: Int = 8,
+    val sms_timeout_seconds: Int = 10,
+    val intent_timeout_seconds: Int = 20,
     val uninstall_allowlist: List<String> = emptyList(),
     val delete_allowlist: List<DeleteTarget> = emptyList(),
     val self_uninstall_enabled: Boolean = false,

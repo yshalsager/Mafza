@@ -24,6 +24,9 @@ Profile actions also support launching custom intents with data as executable st
   - `notify_target: String`
   - `message_template: String`
   - `cancel_window_seconds: Int` (user-configurable; default `2`)
+  - `location_timeout_seconds: Int` (user-configurable; default `8`)
+  - `sms_timeout_seconds: Int` (user-configurable; default `10`)
+  - `intent_timeout_seconds: Int` (user-configurable fallback; default `20`)
   - `uninstall_allowlist: List<String>`
   - `delete_allowlist: List<DeleteTarget>`
   - `self_uninstall_enabled: Boolean`
@@ -121,8 +124,9 @@ Profile actions also support launching custom intents with data as executable st
     - required action failure marks run as non-success even when continuation is allowed
     - `continue_on_failure=false` stops remaining actions in the same branch
 - Fixed timeouts:
-  - location 8s
-  - SMS per recipient 10s
+  - location uses profile timeout (`location_timeout_seconds`, default 8s)
+  - SMS per recipient uses profile timeout (`sms_timeout_seconds`, default 10s)
+  - intent launch uses per-intent `IntentActionSpec.timeout_seconds` with fallback to profile `intent_timeout_seconds` (default 20s)
   - message-app provider 20s
   - uninstall per package 15s
   - delete per target 15s

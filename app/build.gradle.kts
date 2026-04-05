@@ -93,6 +93,7 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.serialization.json)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
@@ -104,6 +105,7 @@ dependencies {
     ksp(libs.hilt.compiler)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

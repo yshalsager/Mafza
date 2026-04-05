@@ -9,6 +9,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.yshalsager.mafza.R
+import com.yshalsager.mafza.emergency.steps.EmergencyStepsFactory
 import com.yshalsager.mafza.core.contracts.ExecutionMode
 import com.yshalsager.mafza.core.contracts.RunStatus
 import com.yshalsager.mafza.core.contracts.StepResult
@@ -55,7 +56,12 @@ class EmergencyExecutionService : Service() {
         DefaultEmergencyEngine(
             scope = service_scope,
             profile_reader = { profile_store.read_profile() },
-            steps_provider = { emptyList() },
+            steps_provider = { step_context ->
+                EmergencyStepsFactory.create_steps(
+                    app_context = applicationContext,
+                    step_context = step_context
+                )
+            },
             on_event = ::handle_engine_event
         )
     }
