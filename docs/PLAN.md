@@ -1,0 +1,409 @@
+## Mafza v1 Decision-Complete Plan (Android Only)
+
+### Branding
+- Product name: `Mafza`
+- Meaning: Al-Mafza‘ (المفزع), the one you turn to when hardship strikes
+- English branding: use `Mafza` (clean, app-friendly)
+
+### Summary
+Build **Mafza** as an Android 11+ emergency app with one fixed profile and one execution engine.
+All external triggers (shortcut/widget/QS tile) start **Live** mode immediately, show a **2s cancel window**, then run best-effort parallel branches.
+A separate **Dry Run** can be started manually from inside the app and executes the same pipeline without side effects.
+Backup/restore is supported for profile recovery through encrypted export/import.
+Action execution is fully customizable: user selects app/provider bindings per app-driven action.
+Profile actions also support launching custom intents with data as executable steps.
+
+### Public Interfaces, Types, And Contracts
+- `enum class ExecutionMode { LIVE, DRY_RUN }`
+- `enum class StepStatus { SUCCESS, FAILED, TIMED_OUT, SKIPPED_UNAVAILABLE, SKIPPED_DRY_RUN, CANCELLED_PRE_START }`
+- `enum class RunStatus { RUNNING, CANCELLED_PRE_START, COMPLETED_SUCCESS, COMPLETED_PARTIAL, COMPLETED_FAILED }`
+- `enum class ActionId { NOTIFY_MESSAGE_APP, LAUNCH_INTENT, UNINSTALL_APPS, DELETE_PATHS, ADVANCED_SHELL_COMMANDS }`
+- `data class DeleteTarget(path: String, recursive: Boolean)`
+- `data class EmergencyProfile(...)` fields:
+  - `sms_recipients: List<String>`
+  - `notify_target: String`
+  - `message_template: String`
+  - `uninstall_allowlist: List<String>`
+  - `delete_allowlist: List<DeleteTarget>`
+  - `self_uninstall_enabled: Boolean`
+  - `default_mode: ExecutionMode` (used by in-app manual run only; external triggers force `LIVE`)
+  - `action_bindings: List<ActionBinding>` (user-selected app/provider per app-driven action)
+  - `action_policies: List<ActionPolicy>` (`enabled`, `required`, `continue_on_failure`, `execution_order`)
+  - `intent_actions: List<IntentActionSpec>`
+  - `advanced_shell_commands: List<ShellCommandSpec>`
+  - `destructive_actions_enabled: Boolean` (global safety toggle)
+  - `triggers_enabled: Boolean` (global maintenance toggle)
+- `data class ActionBinding(...)` fields:
+  - `action_id: ActionId`
+  - `package_name: String`
+  - `activity_name: String?`
+  - `enabled: Boolean`
+- `data class ActionPolicy(...)` fields:
+  - `action_id: ActionId`
+  - `enabled: Boolean`
+  - `required: Boolean`
+  - `continue_on_failure: Boolean`
+  - `execution_order: Int`
+- `data class ShellCommandSpec(...)` fields:
+  - `id: String`
+  - `label: String`
+  - `argv: List<String>`
+  - `raw_shell: String?` (dangerous mode, optional)
+  - `timeout_seconds: Int`
+  - `continue_on_failure: Boolean`
+  - `enabled: Boolean`
+- `data class IntentActionSpec(...)` fields:
+  - `id: String`
+  - `label: String`
+  - `intent_action: String?` (defaults to `android.intent.action.VIEW`)
+  - `data_uri: String?`
+  - `mime_type: String?`
+  - `categories: List<String>`
+  - `package_name: String?`
+  - `activity_name: String?`
+  - `extras_json: String?` (optional serialized extras map)
+  - `flags: List<String>`
+  - `timeout_seconds: Int`
+  - `continue_on_failure: Boolean`
+  - `enabled: Boolean`
+- `data class ProviderCapabilities(...)` fields:
+  - `supports_template: Boolean`
+  - `supports_target: Boolean`
+  - `supports_auto_send: Boolean`
+- `interface EmergencyEngine`:
+  - `fun start(trigger: TriggerSource, mode: ExecutionMode): RunId`
+  - `fun cancelWithinWindow(runId: RunId): Boolean`
+- `interface EmergencyStep { suspend fun execute(ctx: StepContext): StepResult }`
+- `interface ActionProvider`:
+  - `fun actionId(): ActionId`
+  - `fun isAvailable(binding: ActionBinding): Boolean`
+  - `fun capabilities(binding: ActionBinding): ProviderCapabilities`
+  - `suspend fun preflight(binding: ActionBinding): ProviderPreflightResult`
+  - `suspend fun execute(request: ProviderRequest): ProviderExecutionResult`
+- `data class BackupPayload(...)` fields:
+  - `schema_version: Int`
+  - `exported_at_epoch_ms: Long`
+  - `app_version: String`
+  - `profile: EmergencyProfile`
+  - `include_history: Boolean`
+  - `history: List<RunHistoryExportItem>` (optional; present only when `include_history=true`)
+- `interface BackupService`:
+  - `fun exportEncryptedBackup(passphrase: CharArray, includeHistory: Boolean): Uri`
+  - `fun restoreEncryptedBackup(uri: Uri, passphrase: CharArray): RestoreResult`
+- Trigger duplicate contract:
+  - if a run is active, new trigger is ignored and logged as `IGNORED_DUPLICATE_TRIGGER`; no queue and no restart
+- Run completion contract:
+  - `COMPLETED_SUCCESS`: all executed steps are `SUCCESS`
+  - `COMPLETED_PARTIAL`: at least one `SUCCESS` and at least one non-success status
+  - `COMPLETED_FAILED`: zero successful steps and at least one `FAILED` or `TIMED_OUT`
+
+### Implementation Changes
+- Architecture/stack:
+  - `:app` + `:core`, MVVM + UseCases, Hilt, Compose + Navigation Compose, Foreground Service + Coroutines
+  - DataStore (profile) + Room (run history), JDK 17 toolchain
+  - dependency version policy: use latest stable releases at implementation start; do not use alpha/beta/rc versions
+- Entry/runtime:
+  - `EmergencyStartReceiver` as single trigger entrypoint for shortcut/widget/QS tile
+  - `EmergencyExecutionService` owns one active run job (`Mutex` guarded)
+  - run uses a snapshot of profile/mode at start; profile edits affect only future runs
+  - run snapshot includes action bindings; one active binding per `ActionId` is resolved at start
+  - run snapshot includes `action_policies`, `intent_actions`, and `advanced_shell_commands`
+- Pipeline behavior:
+  - fixed 2-second cancel window before first side-effect step
+  - notify branch order: location -> SMS -> app-driven actions (`message-app provider`, then configured `intent actions`)
+  - destructive branch order: uninstall allowlist -> delete allowlist -> advanced shell commands
+  - self-uninstall executes strictly last after both branches finish/skip/fail
+  - no retries in v1
+  - action orchestration:
+    - actions execute by `execution_order`
+    - disabled actions are skipped
+    - required action failure marks run as non-success even when continuation is allowed
+    - `continue_on_failure=false` stops remaining actions in the same branch
+- Fixed timeouts:
+  - location 8s
+  - SMS per recipient 10s
+  - message-app provider 20s
+  - uninstall per package 15s
+  - delete per target 15s
+  - self uninstall 15s
+- SMS contract:
+  - sequential best-effort fanout across recipients
+  - per-recipient result logged
+  - template variables: `{timestamp}`, `{lat}`, `{lon}`, `{maps_url}`, `{trigger}`, `{altitude}`, `{accuracy}`, `{battery}`, `{locale}`, `{app_version}`
+- App-driven notify contract:
+  - message-app step uses user-selected app binding (package/activity) from profile
+  - provider abstraction supports Telegram and any selected compatible messaging app
+  - one selected binding per action; disabled or missing binding yields `SKIPPED_UNAVAILABLE`
+  - provider capability enforcement:
+    - if required capability (`supports_template`, `supports_target`, `supports_auto_send`) is missing, step is `SKIPPED_UNAVAILABLE`
+  - success condition: provider execution returns success within timeout
+  - if selected app/provider is unavailable or incompatible: step is `SKIPPED_UNAVAILABLE`; location/SMS still run
+  - no hardcoded pinned app version requirement in v1
+- Intent action contract:
+  - each enabled `IntentActionSpec` is executed as a step according to action policy order
+  - supports explicit action + data URI, optional mime type, optional explicit package/activity targeting
+  - success condition: Android intent launch succeeds within timeout
+  - if no resolver/missing target app: step is `SKIPPED_UNAVAILABLE`
+  - if invalid URI or security failure: step is `FAILED`
+- Destructive policy:
+  - no uninstall-all, no runtime app discovery, no globbing, no path scanning
+  - package validation with strict package-name regex
+  - delete validation:
+    - absolute path required
+    - canonical path required
+    - reject root path `/`
+    - reject symlink targets
+    - no hardcoded forbidden roots beyond root path rejection
+- Shizuku command contract:
+  - uninstall: `pm uninstall --user 0 <package>`
+  - delete file: `rm -f -- <path>`
+  - delete dir (recursive=true): `rm -rf -- <path>`
+  - delete dir (recursive=false): `rmdir -- <path>` (must be empty)
+  - use argv-safe command wrapper (no shell interpolation)
+- Advanced shell command contract:
+  - default execution mode: argv-safe command (`argv`) only
+  - optional dangerous mode: `raw_shell` command allowed only with explicit user opt-in and warning
+  - each command uses its own timeout and `continue_on_failure` policy
+  - Live execution requires Shizuku availability
+  - Dry Run never executes commands; logs `SKIPPED_DRY_RUN`
+- Preflight policy:
+  - Live mode: full preflight required before enabling emergency triggers
+  - Live mode checks include selected action-provider app availability and required grants
+  - Live blocking checks matrix:
+    - valid profile schema and required fields
+    - at least one valid recipient
+    - message-app provider binding installed and launchable
+    - enabled intent actions are structurally valid and resolvable (unless explicit optional policy marks them non-required)
+    - required runtime permissions granted (SMS/location as configured)
+    - Shizuku ready when destructive actions are enabled
+    - advanced shell commands valid (`argv` present or allowed `raw_shell`) when enabled
+  - Live warnings (non-blocking):
+    - optional provider capabilities that are not required by current configuration
+    - backup passphrase not yet tested
+  - Dry Run (manual only): partial preflight; requires profile validity but can run without SMS/location/Shizuku readiness
+- Dry Run policy:
+  - full orchestration and validations run
+  - no SMS/message-app/intent/uninstall/delete side effects
+  - side-effect steps logged as `SKIPPED_DRY_RUN`
+  - run history stores execution mode
+- Data protection/logging:
+  - sensitive profile fields stored encrypted at rest (Android Keystore-backed key for DataStore payload encryption)
+  - Room command audit stores redacted summary only: action, target summary, exit code, stderr snippet
+  - retention: keep latest 100 runs, prune oldest on insert transaction
+  - audit export:
+    - export run audit as redacted JSON (no secrets, no raw passphrases)
+    - include run metadata, step statuses, selected action IDs, and redacted command summaries
+- Backup/restore:
+  - file-based encrypted backup/import (user-selected document URI)
+  - encryption: AES-256-GCM payload, key derived by PBKDF2-HMAC-SHA256 from passphrase
+  - pinned crypto constants:
+    - PBKDF2 iterations: `210000`
+    - salt length: `16 bytes`
+    - nonce length: `12 bytes`
+    - auth tag length: `128 bits`
+    - backup extension: `.mafza.bak`
+  - backup default: export profile only (`includeHistory=false`)
+  - backup always includes profile-level customization state (`action_bindings`, `action_policies`, `intent_actions`, `advanced_shell_commands`, safety toggles)
+  - optional history export/import supported with same retention rule (max 100 runs after restore)
+  - restore semantics: **replace** (not merge) for profile and optional history
+  - restore is atomic:
+    - validate/decrypt payload first
+    - if valid, replace profile in one transaction
+    - if history included, replace history in one transaction then prune to latest 100
+  - post-restore action: rerun preflight checks and refresh Home preflight status card
+  - compatibility policy:
+    - accept same schema version
+    - reject newer unknown schema version with actionable error
+    - allow older schema only when explicit migration exists
+- Build/distribution:
+  - release application ID: `com.yshalsager.mafza`
+  - debug application ID: `com.yshalsager.mafza.debug`
+  - separate debug artifact using dedicated debug application ID suffix `.debug`
+  - debug version name suffix: `-debug`
+  - debug and release can be installed side-by-side on same device
+  - debug variant has explicit debug app label and icon treatment to avoid operator confusion
+  - output naming:
+    - debug: `mafza-debug.apk`
+    - release: `mafza-release.apk`
+  - release artifact remains clean `Mafza` package for internal distribution
+
+### UI Experience (Agreed)
+- Navigation model:
+  - 3-tab bottom navigation: `Home`, `Profile`, `History`
+  - details route: `RunDetails(runId)` from history rows
+- Visual direction:
+  - high-contrast utilitarian UI with emergency-first clarity
+  - strong semantic status treatment for `Live`, `Dry Run`, `Success`, `Warning`, `Failure`
+- Home behavior:
+  - two primary actions: `Run Live` and `Run Dry Run`
+  - `Run Live` requires one confirmation dialog before the 2-second cancel window
+  - 2-second cancel UI is a full-screen blocking overlay
+  - persistent preflight status card at top of Home with actionable fix links
+  - health card shows last successful Live run and last successful Dry Run with stale warning when outdated
+- Profile behavior:
+  - single settings form (no wizard)
+  - allowlist editing is picker-assisted where possible, with manual fallback
+  - app/provider picker for each app-driven action (starting with message app)
+  - provider actions:
+    - `Test Provider` per app-driven action
+    - `Reset Binding` and `Re-pick App` controls per action binding
+  - action policy controls per action (`enabled`, `required`, `continue_on_failure`, `execution_order`)
+  - intent actions section:
+    - add/edit/remove/reorder intent steps
+    - configure action, data URI, optional package/activity, optional mime type, and extras
+    - test intent resolver before saving
+  - advanced shell commands section:
+    - add/edit/remove/reorder commands
+    - choose argv-safe mode or dangerous raw-shell mode
+    - per-command timeout and continue-on-failure controls
+  - global safety toggles:
+    - `Destructive Actions Enabled`
+    - `Triggers Enabled`
+  - sensitive-edit protection:
+    - biometric/PIN confirmation required before changing destructive actions, advanced shell commands, backup/restore settings, and global safety toggles
+  - profile edits stay enabled during active run with banner note: current run uses snapshot, changes apply next run
+  - session-level undo via snackbar for allowlist edits before save
+  - backup/restore section:
+    - `Export Encrypted Backup` action with passphrase entry + confirmation
+    - `Restore From Backup` action with file picker + passphrase entry
+    - restore preview shows payload metadata (export date, app version, include history) before final confirm
+- History behavior:
+  - compact run rows by default, expandable inline details
+  - mode/status badges visible in both row summary and expanded details
+- Safety messaging:
+  - actionable plain-language error copy (issue + explicit next action)
+  - dry run is strongly labeled on Home CTAs, active run UI, and history entries
+  - unavailable selected app/provider states show direct fix path to action binding settings
+  - intent step failures show resolver/URI-specific fix guidance
+  - dangerous raw-shell mode shows persistent warning state in Profile and preflight
+- Trigger affordances:
+  - widget and QS tile use explicit mode-safe labels and emergency wording (not icon-only)
+- Localization and accessibility:
+  - v1 ships English + Arabic with full RTL support
+  - accessibility baseline: 4.5:1 text contrast, 48dp minimum touch targets, semantic labels, dynamic type support
+
+### UI Technical Choices (Agreed)
+- UI architecture:
+  - MVVM + immutable `UiState` per screen
+  - `StateFlow` for persistent state
+  - `SharedFlow<UiEvent>` for one-time effects (snackbar, nav, dialogs)
+- Navigation:
+  - Navigation Compose with typed routes and Kotlin serialization for args
+  - no ad-hoc string route parsing for typed destinations
+- Theming/tokens:
+  - Material 3 baseline + app token layer for colors, spacing, shapes, typography
+  - dynamic color support enabled:
+    - Android 12+: full dynamic color scheme
+    - Android 11 fallback: static Mafza palette
+  - semantic statuses derive from active scheme roles and must preserve accessible contrast
+- Rendering/performance:
+  - `LazyColumn` + stable keys for history and editable lists
+  - derived UI models to reduce unnecessary recomposition in list-heavy screens
+- Assets:
+  - vector assets + Material icons (no runtime image-loading dependency in v1)
+- Form/validation:
+  - field-level and form-level validation handled in ViewModel
+  - inline validation with save gating on invalid profile data
+  - action-binding validation requires selected package to be installed and launchable for enabled bindings
+  - action policy validation enforces unique `execution_order` per branch
+  - intent action validation:
+    - valid URI format when `data_uri` is set
+    - either implicit resolver available or explicit package/activity resolvable when enabled
+    - intent timeout bounds enforced in UI
+  - advanced shell validation:
+    - argv-safe mode requires non-empty `argv`
+    - raw-shell mode requires explicit opt-in flag and non-empty `raw_shell`
+    - command timeout bounds enforced in UI
+  - backup passphrase rules: minimum 12 characters, confirmation required on export, non-empty required on restore
+  - passphrase is kept in-memory only for current action and zeroed/cleared after completion
+
+### Tooling And Workflow
+- Build and environment:
+  - Android Studio latest stable
+  - JDK 17
+  - Gradle Kotlin DSL with `libs.versions.toml`
+  - `mise` for reproducible local tool/runtime setup
+- Android stack:
+  - latest stable AGP, Kotlin, and Compose BOM at implementation start (no alpha/beta/rc)
+  - Hilt, Room + KSP, DataStore (Proto), kotlinx serialization
+- Code quality:
+  - `ktlint` for style
+  - `detekt` for static analysis
+  - Android lint with critical issues treated as build failures
+- Testing stack:
+  - unit: JUnit, kotlinx-coroutines-test, Turbine, MockK
+  - UI: Compose UI test
+  - screenshot regression: Paparazzi (or Shot)
+  - instrumentation: AndroidX test runner + Compose/Espresso rules
+- Dependency/security hygiene:
+  - Dependabot or Renovate for update PRs
+  - Gradle dependency locking
+  - secret scanning in CI (gitleaks or equivalent)
+- CI pipeline (GitHub Actions):
+  - lint + static analysis
+  - unit tests
+  - instrumentation/screenshot jobs
+  - assemble debug and release APK artifacts
+  - artifact outputs: `mafza-debug.apk`, `mafza-release.apk`
+
+### Test Plan
+- Unit tests:
+  - state machine transitions and run-status derivation
+  - duplicate-trigger ignore behavior
+  - cancel-window behavior
+  - per-step timeout handling and no-retry policy
+  - allowlist validators (package/path, canonicalization, symlink rejection, `/` rejection)
+  - dry-run no-side-effect guarantee (adapters are not invoked)
+  - history retention pruning at 100 runs
+  - UI state reducers/viewmodels for form validation, run-mode labeling, and snapshot-edit banner behavior
+  - backup payload serialization/deserialization and schema-version validation
+  - encrypted backup export/import success and wrong-passphrase failure cases
+  - restore atomicity: failed restore does not partially mutate profile/history
+  - action-binding validation (installed/uninstalled app, invalid activity, disabled binding behavior)
+  - action-policy evaluation (`required`, `continue_on_failure`, ordering) and run-status impact
+  - intent action validation/execution policy tests (resolver found/missing, invalid URI, timeout path)
+  - advanced shell validation and execution-policy tests (argv-safe vs raw-shell gating)
+- Instrumentation tests:
+  - shortcut/widget/QS tile all route to same receiver/service path
+  - foreground service lifecycle and notification behavior
+  - profile snapshot-at-start behavior
+  - external triggers always live, in-app dry run works
+  - Home flows: Live confirmation, full-screen cancel overlay, Dry Run start path
+  - Profile flows: picker-assisted allowlist editing, app/provider selection, inline validation, undo snackbar
+  - Profile action policy flows: reorder actions, required flags, continue-on-failure toggles
+  - Profile intent-action flows: add/edit/reorder intent steps, resolver test, validation errors
+  - Profile advanced shell flows: add/edit/reorder commands, dangerous mode warnings, biometric/PIN confirmation gate
+  - Profile backup flows: export confirmation, restore preview, restore confirmation
+  - History flows: compact/expand behavior and run detail navigation
+- Device tests:
+  - Shizuku authorized/unauthorized
+  - SMS success/failure per recipient
+  - location timeout/fallback
+  - selected message-app provider success path + skip fallback behavior when app unavailable
+  - intent step execution success/failure paths (valid deep link, missing resolver, invalid URI)
+  - advanced shell command execution on live run (safe fixtures) + skip behavior in Dry Run
+  - destructive actions operate only on explicit safe fixtures
+  - dry run confirms zero external side effects
+  - locale and theme checks: English/Arabic RTL parity and dynamic-color readability on supported devices
+  - screenshot regression set for key states (Home ready/blocked, Live confirm, cancel overlay, Dry Run run card, History expanded row)
+  - backup file interoperability test across app reinstall on same Android major version
+  - debug/release side-by-side install verification (`.debug` + release package)
+
+### Release Acceptance Checklist (Must Pass Before Internal Release)
+- Live run from all triggers with full preflight green.
+- Dry Run from in-app action with zero external side effects.
+- Message-app provider selection, test-provider flow, unavailable-provider fallback.
+- Intent action step configuration and execution (resolver test + runtime behavior) validated.
+- Destructive allowlist safety gates (`/` rejection, symlink rejection, canonical path checks).
+- Encrypted backup export/import with correct passphrase; wrong-passphrase failure handling.
+- Restore replace semantics verified (profile/history replaced atomically, no partial mutation).
+- Debug/release side-by-side install with:
+  - release `com.yshalsager.mafza`
+  - debug `com.yshalsager.mafza.debug`
+- Profile customization persistence validated via backup/restore roundtrip.
+
+### Assumptions And Defaults
+- Internal/sideload distribution only.
+- Action providers are user-selected and may vary by device; app-driven steps must degrade safely when provider is unavailable.
+- Immediate execution is mandatory; only the 2-second pre-start cancel window is allowed.
+- No KMP/Desktop scope in v1.
