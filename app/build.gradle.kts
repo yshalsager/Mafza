@@ -51,6 +51,7 @@ android {
 
     buildFeatures {
         compose = true
+        aidl = true
     }
 
     packaging {
@@ -103,6 +104,8 @@ dependencies {
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+    implementation(libs.shizuku.api)
+    runtimeOnly(libs.shizuku.provider)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

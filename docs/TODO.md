@@ -40,14 +40,14 @@
 - [x] Location step with configurable timeout (`location_timeout_seconds`, default 8s)
 - [x] SMS step (sequential fanout, per recipient logging)
 - [x] Intent launch step (`IntentActionSpec`, live + dry-run behavior)
-- [ ] Message-app provider step (20s timeout, capability checks, unavailable fallback)
-- [ ] Uninstall step via Shizuku (`pm uninstall --user 0 <package>`, 15s each)
-- [ ] Delete step via Shizuku (`rm`/`rmdir` contracts, 15s each target)
-- [ ] Advanced shell commands step:
-  - [ ] argv-safe mode (default)
-  - [ ] dangerous raw-shell mode (explicit opt-in)
-  - [ ] per-command timeout + continue-on-failure
-- [ ] Dry Run mode: no side effects, mark side-effect steps `SKIPPED_DRY_RUN`
+- [x] Message-app provider step (20s timeout, capability checks, unavailable fallback)
+- [x] Uninstall step via Shizuku (`pm uninstall --user 0 <package>`, 15s each)
+- [x] Delete step via Shizuku (`rm`/`rmdir` contracts, 15s each target)
+- [x] Advanced shell commands step:
+  - [x] argv-safe mode (default)
+  - [x] dangerous raw-shell mode (explicit opt-in)
+  - [x] per-command timeout + continue-on-failure
+- [x] Dry Run mode: no side effects, mark side-effect steps `SKIPPED_DRY_RUN`
 - [ ] Self uninstall executes strictly last
 
 ## 5) Validation And Preflight
@@ -84,7 +84,7 @@
 
 ## 8) UI Screens
 - [ ] Home:
-  - [ ] Preflight status card + fix actions
+  - [x] Preflight status card + fix actions
   - [ ] `Run Live` and `Run Dry Run` CTAs
   - [ ] Live confirmation dialog
   - [ ] full-screen cancel overlay (duration reflects user setting)
