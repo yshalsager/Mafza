@@ -49,6 +49,10 @@ object EmergencyStepsFactory {
         steps += UninstallAppsStep(command_executor = command_executor)
         steps += DeletePathsStep(command_executor = command_executor)
         steps += AdvancedShellCommandsStep(command_executor = command_executor)
+        steps += SelfUninstallStep(
+            app_context = app_context,
+            command_executor = command_executor
+        )
         return steps
     }
 }

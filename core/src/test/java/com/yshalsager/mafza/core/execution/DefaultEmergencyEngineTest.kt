@@ -299,6 +299,60 @@ class DefaultEmergencyEngineTest {
     }
 
     @Test
+    fun `finalize branch executes after destructive branch`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val execution_order = mutableListOf<String>()
+
+        val profile = EmergencyProfile(
+            action_policies = listOf(
+                ActionPolicy(
+                    action_id = ActionId.DELETE_PATHS,
+                    enabled = true,
+                    required = false,
+                    continue_on_failure = true,
+                    execution_order = 1
+                ),
+                ActionPolicy(
+                    action_id = ActionId.SELF_UNINSTALL,
+                    enabled = true,
+                    required = false,
+                    continue_on_failure = true,
+                    execution_order = 1
+                )
+            )
+        )
+
+        val engine = DefaultEmergencyEngine(
+            scope = CoroutineScope(dispatcher + Job()),
+            profile_reader = { profile },
+            steps_provider = {
+                listOf(
+                    TestPolicyStep(
+                        action_id = ActionId.SELF_UNINSTALL,
+                        branch = StepBranch.FINALIZE
+                    ) {
+                        execution_order += "self_uninstall"
+                        success_result("self_uninstall")
+                    },
+                    TestPolicyStep(
+                        action_id = ActionId.DELETE_PATHS,
+                        branch = StepBranch.DESTRUCTIVE
+                    ) {
+                        execution_order += "delete_paths"
+                        success_result("delete_paths")
+                    }
+                )
+            },
+            cancel_window_millis_provider = { 1L }
+        )
+
+        engine.start(TriggerSource.SHORTCUT, ExecutionMode.LIVE)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("delete_paths", "self_uninstall"), execution_order)
+    }
+
+    @Test
     fun `disabled action policy skips step execution`() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val events = CopyOnWriteArrayList<EngineEvent>()

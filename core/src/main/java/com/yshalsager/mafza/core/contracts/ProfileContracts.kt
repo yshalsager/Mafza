@@ -8,7 +8,8 @@ enum class ActionId {
     LAUNCH_INTENT,
     UNINSTALL_APPS,
     DELETE_PATHS,
-    ADVANCED_SHELL_COMMANDS
+    ADVANCED_SHELL_COMMANDS,
+    SELF_UNINSTALL
 }
 
 @Serializable

@@ -48,16 +48,18 @@
   - [x] dangerous raw-shell mode (explicit opt-in)
   - [x] per-command timeout + continue-on-failure
 - [x] Dry Run mode: no side effects, mark side-effect steps `SKIPPED_DRY_RUN`
-- [ ] Self uninstall executes strictly last
+- [x] Self uninstall executes strictly last
 
 ## 5) Validation And Preflight
-- [ ] Implement package/path validators (absolute path, canonical path, reject `/`, reject symlinks)
-- [ ] Implement action-binding validation (installed + launchable)
-- [ ] Implement action-policy validation (unique `execution_order` per branch)
-- [ ] Implement advanced-shell validation (`argv` required for safe mode, `raw_shell` gated)
-- [ ] Implement Live blocking checks matrix
-- [ ] Implement Dry Run partial preflight policy
-- [ ] Implement warning states (provider capability warnings, backup passphrase not tested)
+- [x] Implement package/path validators (absolute path, canonical path, reject `/`, reject symlinks)
+- [x] Implement action-binding validation (installed + launchable)
+- [x] Implement action-policy validation (unique `execution_order` per branch)
+- [x] Implement advanced-shell validation (`argv` required for safe mode, `raw_shell` gated)
+- [x] Implement Live blocking checks matrix
+- [x] Implement Dry Run partial preflight policy
+- [ ] Implement warning states
+  - [x] provider capability warnings
+  - [ ] backup passphrase not tested
 
 ## 6) Backup / Restore
 - [ ] Implement encrypted backup export to document URI
@@ -85,9 +87,9 @@
 ## 8) UI Screens
 - [ ] Home:
   - [x] Preflight status card + fix actions
-  - [ ] `Run Live` and `Run Dry Run` CTAs
-  - [ ] Live confirmation dialog
-  - [ ] full-screen cancel overlay (duration reflects user setting)
+  - [x] `Run Live` and `Run Dry Run` CTAs
+  - [x] Live confirmation dialog
+  - [x] full-screen cancel overlay (duration reflects user setting)
   - [ ] health card (last successful Live/Dry Run + stale warning)
 - [ ] Profile:
   - [ ] Single settings form

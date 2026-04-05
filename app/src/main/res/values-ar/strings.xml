@@ -9,6 +9,16 @@
     <string name='preflight_unknown'>حالة الجاهزية غير معروفة.</string>
     <string name='preflight_refresh'>تحديث الحالة</string>
     <string name='preflight_request_permission'>طلب صلاحية Shizuku</string>
+    <string name='run_actions_title'>التشغيل</string>
+    <string name='run_live_action'>تشغيل مباشر</string>
+    <string name='run_dry_run_action'>تشغيل تجريبي</string>
+    <string name='run_live_confirm_title'>تشغيل مباشر الآن؟</string>
+    <string name='run_live_confirm_body'>سيبدأ هذا التنفيذ المباشر فورًا بعد نافذة الإلغاء المهيأة.</string>
+    <string name='run_live_confirm_action'>تشغيل مباشر</string>
+    <string name='run_live_cancel_action'>إلغاء</string>
+    <string name='cancel_window_title'>نافذة الإلغاء</string>
+    <string name='cancel_window_body'>بدأ التشغيل المباشر. ألغِ خلال %1$d ثوانٍ.</string>
+    <string name='cancel_window_action'>إلغاء التشغيل</string>
     <string name='destructive_toggle_title'>الإجراءات التدميرية</string>
     <string name='destructive_toggle_subtitle'>تفعيل إلغاء التثبيت والحذف وأوامر الشل المتقدمة في وضع التشغيل المباشر.</string>
     <string name='emergency_notification_title'>تنفيذ المفزع للطوارئ</string>

@@ -9,6 +9,16 @@
     <string name='preflight_unknown'>Preflight status unknown.</string>
     <string name='preflight_refresh'>Refresh status</string>
     <string name='preflight_request_permission'>Request Shizuku permission</string>
+    <string name='run_actions_title'>Run</string>
+    <string name='run_live_action'>Run Live</string>
+    <string name='run_dry_run_action'>Run Dry Run</string>
+    <string name='run_live_confirm_title'>Run Live now?</string>
+    <string name='run_live_confirm_body'>This will start immediate live execution after the configured cancel window.</string>
+    <string name='run_live_confirm_action'>Run Live</string>
+    <string name='run_live_cancel_action'>Cancel</string>
+    <string name='cancel_window_title'>Cancel Window</string>
+    <string name='cancel_window_body'>Live run started. Cancel within %1$d seconds.</string>
+    <string name='cancel_window_action'>Cancel Run</string>
     <string name='destructive_toggle_title'>Destructive Actions</string>
     <string name='destructive_toggle_subtitle'>Enable uninstall, delete, and advanced shell commands in Live mode.</string>
     <string name='emergency_notification_title'>Mafza Emergency Execution</string>
