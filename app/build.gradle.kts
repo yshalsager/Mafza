@@ -1,3 +1,5 @@
+import org.gradle.api.tasks.Copy
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -59,32 +61,28 @@ android {
 
 }
 
-fun register_apk_rename(variant_name: String) {
+fun register_apk_copy(variant_name: String) {
     val task_suffix = variant_name.replaceFirstChar { char ->
         if (char.isLowerCase()) char.titlecase() else char.toString()
     }
+    val version_name = android.defaultConfig.versionName ?: "0.0.0"
+    val source_apk = layout.buildDirectory.file("outputs/apk/$variant_name/app-$variant_name.apk")
+    val renamed_output_dir = layout.buildDirectory.dir("outputs/renamed-apk/$variant_name")
+    val target_apk_name = "${rootProject.name.lowercase()}-${version_name}-${variant_name}.apk"
 
-    val rename_task = tasks.register("rename${task_suffix}ApkOutput") {
-        doLast {
-            val apk_dir = layout.buildDirectory.dir("outputs/apk/$variant_name").get().asFile
-            val source_apk = apk_dir.resolve("app-$variant_name.apk")
-            if (!source_apk.exists()) return@doLast
-
-            val version_name = android.defaultConfig.versionName ?: "0.0.0"
-            val target_name = "${rootProject.name.lowercase()}-${version_name}-${variant_name}.apk"
-            val target_apk = apk_dir.resolve(target_name)
-
-            source_apk.copyTo(target_apk, overwrite = true)
-        }
+    val copy_task = tasks.register("copy${task_suffix}ApkOutput", Copy::class.java) {
+        from(source_apk)
+        into(renamed_output_dir)
+        rename { target_apk_name }
     }
 
     tasks.matching { it.name == "assemble$task_suffix" }.configureEach {
-        finalizedBy(rename_task)
+        finalizedBy(copy_task)
     }
 }
 
-register_apk_rename("debug")
-register_apk_rename("release")
+register_apk_copy("debug")
+register_apk_copy("release")
 
 dependencies {
     implementation(project(":core"))

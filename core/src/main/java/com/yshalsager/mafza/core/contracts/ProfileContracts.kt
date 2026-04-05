@@ -67,6 +67,7 @@ data class EmergencyProfile(
     val sms_recipients: List<String> = emptyList(),
     val notify_target: String = "",
     val message_template: String = "",
+    val cancel_window_seconds: Int = 2,
     val uninstall_allowlist: List<String> = emptyList(),
     val delete_allowlist: List<DeleteTarget> = emptyList(),
     val self_uninstall_enabled: Boolean = false,

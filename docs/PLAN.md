@@ -7,7 +7,7 @@
 
 ### Summary
 Build **Mafza** as an Android 11+ emergency app with one fixed profile and one execution engine.
-All external triggers (shortcut/widget/QS tile) start **Live** mode immediately, show a **2s cancel window**, then run best-effort parallel branches.
+All external triggers (shortcut/widget/QS tile) start **Live** mode immediately, show a **user-configurable cancel window** (default **2s**), then run best-effort parallel branches.
 A separate **Dry Run** can be started manually from inside the app and executes the same pipeline without side effects.
 Backup/restore is supported for profile recovery through encrypted export/import.
 Action execution is fully customizable: user selects app/provider bindings per app-driven action.
@@ -23,6 +23,7 @@ Profile actions also support launching custom intents with data as executable st
   - `sms_recipients: List<String>`
   - `notify_target: String`
   - `message_template: String`
+  - `cancel_window_seconds: Int` (user-configurable; default `2`)
   - `uninstall_allowlist: List<String>`
   - `delete_allowlist: List<DeleteTarget>`
   - `self_uninstall_enabled: Boolean`
@@ -109,7 +110,7 @@ Profile actions also support launching custom intents with data as executable st
   - run snapshot includes action bindings; one active binding per `ActionId` is resolved at start
   - run snapshot includes `action_policies`, `intent_actions`, and `advanced_shell_commands`
 - Pipeline behavior:
-  - fixed 2-second cancel window before first side-effect step
+  - user-configurable pre-start cancel window (default `2` seconds) before first side-effect step
   - notify branch order: location -> SMS -> app-driven actions (`message-app provider`, then configured `intent actions`)
   - destructive branch order: uninstall allowlist -> delete allowlist -> advanced shell commands
   - self-uninstall executes strictly last after both branches finish/skip/fail
@@ -236,8 +237,8 @@ Profile actions also support launching custom intents with data as executable st
   - strong semantic status treatment for `Live`, `Dry Run`, `Success`, `Warning`, `Failure`
 - Home behavior:
   - two primary actions: `Run Live` and `Run Dry Run`
-  - `Run Live` requires one confirmation dialog before the 2-second cancel window
-  - 2-second cancel UI is a full-screen blocking overlay
+  - `Run Live` requires one confirmation dialog before the cancel window
+  - cancel-window UI is a full-screen blocking overlay and reflects configured duration
   - persistent preflight status card at top of Home with actionable fix links
   - health card shows last successful Live run and last successful Dry Run with stale warning when outdated
 - Profile behavior:
@@ -405,5 +406,5 @@ Profile actions also support launching custom intents with data as executable st
 ### Assumptions And Defaults
 - Internal/sideload distribution only.
 - Action providers are user-selected and may vary by device; app-driven steps must degrade safely when provider is unavailable.
-- Immediate execution is mandatory; only the 2-second pre-start cancel window is allowed.
+- Immediate execution is mandatory; only the configured pre-start cancel window is allowed (default 2 seconds).
 - No KMP/Desktop scope in v1.

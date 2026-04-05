@@ -1,0 +1,216 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "09f93160525c8a7bb3a62563af66daa4",
+    "entities": [
+      {
+        "tableName": "run_history",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`run_id` TEXT NOT NULL, `started_at_epoch_ms` INTEGER NOT NULL, `completed_at_epoch_ms` INTEGER, `trigger` TEXT NOT NULL, `mode` TEXT NOT NULL, `status` TEXT NOT NULL, PRIMARY KEY(`run_id`))",
+        "fields": [
+          {
+            "fieldPath": "run_id",
+            "columnName": "run_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "started_at_epoch_ms",
+            "columnName": "started_at_epoch_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completed_at_epoch_ms",
+            "columnName": "completed_at_epoch_ms",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "trigger",
+            "columnName": "trigger",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mode",
+            "columnName": "mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "run_id"
+          ]
+        }
+      },
+      {
+        "tableName": "step_history",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`run_id` TEXT NOT NULL, `step_index` INTEGER NOT NULL, `step_id` TEXT NOT NULL, `status` TEXT NOT NULL, `details` TEXT, `started_at_epoch_ms` INTEGER NOT NULL, `finished_at_epoch_ms` INTEGER NOT NULL, PRIMARY KEY(`run_id`, `step_index`), FOREIGN KEY(`run_id`) REFERENCES `run_history`(`run_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "run_id",
+            "columnName": "run_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "step_index",
+            "columnName": "step_index",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "step_id",
+            "columnName": "step_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "details",
+            "columnName": "details",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "started_at_epoch_ms",
+            "columnName": "started_at_epoch_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "finished_at_epoch_ms",
+            "columnName": "finished_at_epoch_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "run_id",
+            "step_index"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_step_history_run_id",
+            "unique": false,
+            "columnNames": [
+              "run_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_step_history_run_id` ON `${TABLE_NAME}` (`run_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "run_history",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "run_id"
+            ],
+            "referencedColumns": [
+              "run_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "command_audit",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`run_id` TEXT NOT NULL, `step_index` INTEGER NOT NULL, `command_index` INTEGER NOT NULL, `action_id` TEXT NOT NULL, `target_summary` TEXT NOT NULL, `exit_code` INTEGER, `stderr_snippet` TEXT, PRIMARY KEY(`run_id`, `step_index`, `command_index`), FOREIGN KEY(`run_id`) REFERENCES `run_history`(`run_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "run_id",
+            "columnName": "run_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "step_index",
+            "columnName": "step_index",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "command_index",
+            "columnName": "command_index",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "action_id",
+            "columnName": "action_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "target_summary",
+            "columnName": "target_summary",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "exit_code",
+            "columnName": "exit_code",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "stderr_snippet",
+            "columnName": "stderr_snippet",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "run_id",
+            "step_index",
+            "command_index"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_command_audit_run_id",
+            "unique": false,
+            "columnNames": [
+              "run_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_command_audit_run_id` ON `${TABLE_NAME}` (`run_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "run_history",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "run_id"
+            ],
+            "referencedColumns": [
+              "run_id"
+            ]
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '09f93160525c8a7bb3a62563af66daa4')"
+    ]
+  }
+}

@@ -1,3 +1,10 @@
 <resources>
     <string name='app_name'>المفزع</string>
+    <string name='emergency_notification_title'>تنفيذ المفزع للطوارئ</string>
+    <string name='emergency_notification_channel_name'>تنفيذ الطوارئ</string>
+    <string name='emergency_notification_channel_description'>حالة التنفيذ الأمامي لتشغيلات الطوارئ.</string>
+    <string name='emergency_notification_idle'>خامل</string>
+    <string name='emergency_notification_running'>التشغيل قيد التنفيذ</string>
+    <string name='emergency_notification_cancel_window'>نافذة الإلغاء مفتوحة</string>
+    <string name='emergency_notification_cancelled'>تم إلغاء التشغيل قبل البدء</string>
 </resources>

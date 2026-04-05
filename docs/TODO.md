@@ -19,19 +19,20 @@
 
 ## 2) Persistence And Security
 - [ ] Implement DataStore (Proto) for profile storage
-- [ ] Implement Room for run/step history
-- [ ] Add retention pruning to keep latest 100 runs
-- [ ] Implement encrypted-at-rest profile handling (Keystore-backed)
-- [ ] Implement redacted command audit model in history
-- [ ] Implement audit export as redacted JSON
+- [x] Implement encrypted DataStore profile storage (typed serializer baseline)
+- [x] Implement Room for run/step history
+- [x] Add retention pruning to keep latest 100 runs
+- [x] Implement encrypted-at-rest profile handling (Keystore-backed)
+- [x] Implement redacted command audit model in history
+- [x] Implement audit export as redacted JSON
 
 ## 3) Execution Engine
-- [ ] Implement `EmergencyExecutionService` with single active run (`Mutex`)
-- [ ] Implement `EmergencyStartReceiver` and trigger routing contract
-- [ ] Implement duplicate trigger ignore behavior (`IGNORED_DUPLICATE_TRIGGER`)
-- [ ] Implement 2-second cancel window + `cancelWithinWindow`
-- [ ] Implement run snapshot behavior (profile/bindings/policies/commands frozen at start)
-- [ ] Implement run state and completion rules (`SUCCESS/PARTIAL/FAILED`)
+- [x] Implement `EmergencyExecutionService` with single active run (`Mutex`)
+- [x] Implement `EmergencyStartReceiver` and trigger routing contract
+- [x] Implement duplicate trigger ignore behavior (`IGNORED_DUPLICATE_TRIGGER`)
+- [x] Implement user-configurable cancel window (default 2s) + `cancelWithinWindow`
+- [x] Implement run snapshot behavior (profile/bindings/policies/commands frozen at start)
+- [x] Implement run state and completion rules (`SUCCESS/PARTIAL/FAILED`)
 - [ ] Implement branch orchestration and action `execution_order`
 - [ ] Implement per-action `required` and `continue_on_failure` logic
 
@@ -85,10 +86,11 @@
   - [ ] Preflight status card + fix actions
   - [ ] `Run Live` and `Run Dry Run` CTAs
   - [ ] Live confirmation dialog
-  - [ ] full-screen 2s cancel overlay
+  - [ ] full-screen cancel overlay (duration reflects user setting)
   - [ ] health card (last successful Live/Dry Run + stale warning)
 - [ ] Profile:
   - [ ] Single settings form
+  - [ ] cancel-window duration setting (`cancel_window_seconds`)
   - [ ] action/provider picker and provider test actions
   - [ ] action policy controls (enabled/required/continue/order)
   - [ ] advanced shell command editor (add/edit/reorder)

@@ -1,3 +1,10 @@
 <resources>
     <string name='app_name'>Mafza</string>
+    <string name='emergency_notification_title'>Mafza Emergency Execution</string>
+    <string name='emergency_notification_channel_name'>Emergency Execution</string>
+    <string name='emergency_notification_channel_description'>Foreground execution state for emergency runs.</string>
+    <string name='emergency_notification_idle'>Idle</string>
+    <string name='emergency_notification_running'>Run in progress</string>
+    <string name='emergency_notification_cancel_window'>Cancel window is open</string>
+    <string name='emergency_notification_cancelled'>Run cancelled before start</string>
 </resources>
