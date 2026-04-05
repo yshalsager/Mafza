@@ -4,18 +4,18 @@
 - [x] Initialize Android project with modules `:app` and `:core`
 - [x] Set `applicationId` release to `com.yshalsager.mafza`
 - [x] Set debug `applicationId` to `com.yshalsager.mafza.debug` and `versionNameSuffix` `-debug`
-- [ ] Configure output artifacts: `mafza-debug.apk`, `mafza-release.apk`
+- [x] Configure output artifacts: `mafza-debug.apk`, `mafza-release.apk`
 - [x] Configure JDK 17 toolchain
 - [x] Add stable-only dependency policy (no alpha/beta/rc)
 - [x] Configure version catalog and pin latest stable versions
 
 ## 1) Core Domain Contracts
-- [ ] Add core enums: `ExecutionMode`, `StepStatus`, `RunStatus`, `ActionId`
-- [ ] Add core models: `DeleteTarget`, `ActionBinding`, `ActionPolicy`, `ShellCommandSpec`, `ProviderCapabilities`
-- [ ] Add `EmergencyProfile` with all profile customization fields
-- [ ] Add engine interfaces: `EmergencyEngine`, `EmergencyStep`
-- [ ] Add provider interface: `ActionProvider` (+ preflight and execute contracts)
-- [ ] Add backup contracts: `BackupPayload`, `BackupService`, `RestoreResult`
+- [x] Add core enums: `ExecutionMode`, `StepStatus`, `RunStatus`, `ActionId`
+- [x] Add core models: `DeleteTarget`, `ActionBinding`, `ActionPolicy`, `ShellCommandSpec`, `ProviderCapabilities`
+- [x] Add `EmergencyProfile` with all profile customization fields
+- [x] Add engine interfaces: `EmergencyEngine`, `EmergencyStep`
+- [x] Add provider interface: `ActionProvider` (+ preflight and execute contracts)
+- [x] Add backup contracts: `BackupPayload`, `BackupService`, `RestoreResult`
 
 ## 2) Persistence And Security
 - [ ] Implement DataStore (Proto) for profile storage
