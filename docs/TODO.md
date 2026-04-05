@@ -33,8 +33,8 @@
 - [x] Implement user-configurable cancel window (default 2s) + `cancelWithinWindow`
 - [x] Implement run snapshot behavior (profile/bindings/policies/commands frozen at start)
 - [x] Implement run state and completion rules (`SUCCESS/PARTIAL/FAILED`)
-- [ ] Implement branch orchestration and action `execution_order`
-- [ ] Implement per-action `required` and `continue_on_failure` logic
+- [x] Implement branch orchestration and action `execution_order`
+- [x] Implement per-action `required` and `continue_on_failure` logic
 
 ## 4) Actions (Live + Dry Run)
 - [ ] Location step with 8s timeout

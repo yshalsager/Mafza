@@ -4,9 +4,11 @@ import com.yshalsager.mafza.core.contracts.EmergencyEngine
 import com.yshalsager.mafza.core.contracts.EmergencyProfile
 import com.yshalsager.mafza.core.contracts.EmergencyStep
 import com.yshalsager.mafza.core.contracts.ExecutionMode
+import com.yshalsager.mafza.core.contracts.PolicyBoundEmergencyStep
 import com.yshalsager.mafza.core.contracts.RunId
 import com.yshalsager.mafza.core.contracts.RunStatus
 import com.yshalsager.mafza.core.contracts.RunStatusDeriver
+import com.yshalsager.mafza.core.contracts.StepBranch
 import com.yshalsager.mafza.core.contracts.StepContext
 import com.yshalsager.mafza.core.contracts.StepResult
 import com.yshalsager.mafza.core.contracts.StepStatus
@@ -140,6 +142,7 @@ class DefaultEmergencyEngine(
                 profile = profile_snapshot,
                 started_at_epoch_ms = started_at
             )
+            val action_policies = profile_snapshot.action_policies.associateBy { it.action_id }
 
             val steps = try {
                 steps_provider(step_context)
@@ -148,15 +151,48 @@ class DefaultEmergencyEngine(
             } catch (_: Throwable) {
                 emptyList()
             }
-            steps.forEach { step ->
+            val planned_steps = build_step_execution_plan(steps, action_policies)
+            val blocked_branches = mutableSetOf<StepBranch>()
+            planned_steps.forEach { planned_step ->
+                val policy_step = planned_step.step as? PolicyBoundEmergencyStep
+                val branch = policy_step?.branch
+                val policy = planned_step.policy
+                val step_id = planned_step.step::class.simpleName ?: "unknown_step"
+
+                if (branch != null && branch in blocked_branches) {
+                    val skipped_result = StepResult(
+                        step_id = step_id,
+                        status = StepStatus.SKIPPED_UNAVAILABLE,
+                        details = "skipped_by_branch_stop",
+                        started_at_epoch_ms = clock(),
+                        finished_at_epoch_ms = clock()
+                    )
+                    step_statuses += skipped_result.status
+                    on_event(EngineEvent.StepCompleted(run_id = run_id, step_result = skipped_result))
+                    return@forEach
+                }
+
+                if (policy != null && !policy.enabled) {
+                    val disabled_result = StepResult(
+                        step_id = step_id,
+                        status = StepStatus.SKIPPED_UNAVAILABLE,
+                        details = "disabled_by_policy",
+                        started_at_epoch_ms = clock(),
+                        finished_at_epoch_ms = clock()
+                    )
+                    step_statuses += disabled_result.status
+                    on_event(EngineEvent.StepCompleted(run_id = run_id, step_result = disabled_result))
+                    return@forEach
+                }
+
                 val step_start = clock()
                 val step_result = try {
-                    step.execute(step_context)
+                    planned_step.step.execute(step_context)
                 } catch (cancelled_exception: CancellationException) {
                     throw cancelled_exception
                 } catch (throwable: Throwable) {
                     StepResult(
-                        step_id = step::class.simpleName ?: "unknown_step",
+                        step_id = step_id,
                         status = StepStatus.FAILED,
                         details = throwable.message,
                         started_at_epoch_ms = step_start,
@@ -166,6 +202,15 @@ class DefaultEmergencyEngine(
 
                 step_statuses += step_result.status
                 on_event(EngineEvent.StepCompleted(run_id = run_id, step_result = step_result))
+
+                if (
+                    branch != null &&
+                    policy != null &&
+                    step_result.status in listOf(StepStatus.FAILED, StepStatus.TIMED_OUT) &&
+                    !policy.continue_on_failure
+                ) {
+                    blocked_branches += branch
+                }
             }
 
             val run_status = RunStatusDeriver.derive_run_status(
@@ -216,6 +261,65 @@ class DefaultEmergencyEngine(
         )
     }
 
+    private fun build_step_execution_plan(
+        steps: List<EmergencyStep>,
+        action_policies_by_id: Map<com.yshalsager.mafza.core.contracts.ActionId, com.yshalsager.mafza.core.contracts.ActionPolicy>
+    ): List<PlannedExecutionStep> {
+        val indexed_steps = steps.mapIndexed { index, step -> IndexedStep(index = index, step = step) }
+        val non_policy_steps = indexed_steps
+            .filter { it.step !is PolicyBoundEmergencyStep }
+            .map { PlannedExecutionStep(step = it.step, policy = null, order = it.index) }
+
+        val notify_steps = ordered_policy_steps_for_branch(
+            indexed_steps = indexed_steps,
+            action_policies_by_id = action_policies_by_id,
+            branch = StepBranch.NOTIFY
+        )
+        val destructive_steps = ordered_policy_steps_for_branch(
+            indexed_steps = indexed_steps,
+            action_policies_by_id = action_policies_by_id,
+            branch = StepBranch.DESTRUCTIVE
+        )
+        val finalize_steps = ordered_policy_steps_for_branch(
+            indexed_steps = indexed_steps,
+            action_policies_by_id = action_policies_by_id,
+            branch = StepBranch.FINALIZE
+        )
+
+        return non_policy_steps + notify_steps + destructive_steps + finalize_steps
+    }
+
+    private fun ordered_policy_steps_for_branch(
+        indexed_steps: List<IndexedStep>,
+        action_policies_by_id: Map<com.yshalsager.mafza.core.contracts.ActionId, com.yshalsager.mafza.core.contracts.ActionPolicy>,
+        branch: StepBranch
+    ): List<PlannedExecutionStep> {
+        return indexed_steps
+            .mapNotNull { indexed_step ->
+                val policy_step = indexed_step.step as? PolicyBoundEmergencyStep ?: return@mapNotNull null
+                if (policy_step.branch != branch) return@mapNotNull null
+
+                val resolved_policy = action_policies_by_id[policy_step.action_id] ?: default_action_policy(policy_step.action_id)
+                PlannedExecutionStep(
+                    step = indexed_step.step,
+                    policy = resolved_policy,
+                    order = resolved_policy.execution_order,
+                    original_index = indexed_step.index
+                )
+            }
+            .sortedWith(compareBy({ it.order }, { it.original_index }))
+    }
+
+    private fun default_action_policy(action_id: com.yshalsager.mafza.core.contracts.ActionId): com.yshalsager.mafza.core.contracts.ActionPolicy {
+        return com.yshalsager.mafza.core.contracts.ActionPolicy(
+            action_id = action_id,
+            enabled = true,
+            required = false,
+            continue_on_failure = true,
+            execution_order = Int.MAX_VALUE
+        )
+    }
+
     private fun set_cancel_window_state(run_id: RunId, is_open: Boolean) {
         synchronized(state_lock) {
             val current_state = active_run_state ?: return
@@ -244,5 +348,17 @@ class DefaultEmergencyEngine(
         val job: Job,
         var cancel_window_open: Boolean = false,
         var cancelled_pre_start: Boolean = false
+    )
+
+    private data class IndexedStep(
+        val index: Int,
+        val step: EmergencyStep
+    )
+
+    private data class PlannedExecutionStep(
+        val step: EmergencyStep,
+        val policy: com.yshalsager.mafza.core.contracts.ActionPolicy?,
+        val order: Int,
+        val original_index: Int = Int.MAX_VALUE
     )
 }

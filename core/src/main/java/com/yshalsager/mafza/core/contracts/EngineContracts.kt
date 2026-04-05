@@ -9,6 +9,17 @@ interface EmergencyStep {
     suspend fun execute(ctx: StepContext): StepResult
 }
 
+enum class StepBranch {
+    NOTIFY,
+    DESTRUCTIVE,
+    FINALIZE
+}
+
+interface PolicyBoundEmergencyStep : EmergencyStep {
+    val action_id: ActionId
+    val branch: StepBranch
+}
+
 data class StepContext(
     val run_id: RunId,
     val trigger: TriggerSource,
