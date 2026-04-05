@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import com.yshalsager.mafza.core.contracts.ActionId
+import com.yshalsager.mafza.core.contracts.ActionPolicyKeys
 import com.yshalsager.mafza.core.contracts.ExecutionMode
 import com.yshalsager.mafza.core.contracts.IntentActionSpec
 import com.yshalsager.mafza.core.contracts.PolicyBoundEmergencyStep
@@ -31,6 +32,7 @@ class LaunchIntentActionStep(
     private val now_provider: () -> Long = { System.currentTimeMillis() }
 ) : PolicyBoundEmergencyStep {
     override val action_id: ActionId = ActionId.LAUNCH_INTENT
+    override val policy_key: String = ActionPolicyKeys.for_intent(intent_action_spec.id)
     override val branch: StepBranch = StepBranch.NOTIFY
 
     override suspend fun execute(ctx: StepContext): StepResult {

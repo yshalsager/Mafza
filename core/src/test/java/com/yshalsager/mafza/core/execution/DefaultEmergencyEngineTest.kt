@@ -2,6 +2,7 @@ package com.yshalsager.mafza.core.execution
 
 import com.yshalsager.mafza.core.contracts.ActionId
 import com.yshalsager.mafza.core.contracts.ActionPolicy
+import com.yshalsager.mafza.core.contracts.ActionPolicyKeys
 import com.yshalsager.mafza.core.contracts.EmergencyProfile
 import com.yshalsager.mafza.core.contracts.EmergencyStep
 import com.yshalsager.mafza.core.contracts.ExecutionMode
@@ -299,6 +300,64 @@ class DefaultEmergencyEngineTest {
     }
 
     @Test
+    fun `steps with same action id use policy key for ordering`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val execution_order = mutableListOf<String>()
+
+        val profile = EmergencyProfile(
+            action_policies = listOf(
+                ActionPolicy(
+                    action_id = ActionId.NOTIFY_MESSAGE_APP,
+                    policy_key = "binding:notify_message_app:secondary",
+                    enabled = true,
+                    required = false,
+                    continue_on_failure = true,
+                    execution_order = 1
+                ),
+                ActionPolicy(
+                    action_id = ActionId.NOTIFY_MESSAGE_APP,
+                    policy_key = "binding:notify_message_app:primary",
+                    enabled = true,
+                    required = false,
+                    continue_on_failure = true,
+                    execution_order = 2
+                )
+            )
+        )
+
+        val engine = DefaultEmergencyEngine(
+            scope = CoroutineScope(dispatcher + Job()),
+            profile_reader = { profile },
+            steps_provider = {
+                listOf(
+                    TestPolicyStep(
+                        action_id = ActionId.NOTIFY_MESSAGE_APP,
+                        policy_key = "binding:notify_message_app:primary",
+                        branch = StepBranch.NOTIFY
+                    ) {
+                        execution_order += "primary"
+                        success_result("primary")
+                    },
+                    TestPolicyStep(
+                        action_id = ActionId.NOTIFY_MESSAGE_APP,
+                        policy_key = "binding:notify_message_app:secondary",
+                        branch = StepBranch.NOTIFY
+                    ) {
+                        execution_order += "secondary"
+                        success_result("secondary")
+                    }
+                )
+            },
+            cancel_window_millis_provider = { 1L }
+        )
+
+        engine.start(TriggerSource.SHORTCUT, ExecutionMode.LIVE)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("secondary", "primary"), execution_order)
+    }
+
+    @Test
     fun `finalize branch executes after destructive branch`() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val execution_order = mutableListOf<String>()
@@ -522,6 +581,7 @@ class DefaultEmergencyEngineTest {
 
     private class TestPolicyStep(
         override val action_id: ActionId,
+        override val policy_key: String = ActionPolicyKeys.for_action(action_id),
         override val branch: StepBranch,
         private val block: suspend () -> StepResult
     ) : PolicyBoundEmergencyStep {

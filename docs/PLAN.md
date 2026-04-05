@@ -12,12 +12,13 @@ A separate **Dry Run** can be started manually from inside the app and executes 
 Backup/restore is supported for profile recovery through encrypted export/import.
 Action execution is fully customizable: user selects app/provider bindings per app-driven action.
 Profile actions also support launching custom intents with data as executable steps.
+Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key behavior may change until first release.
 
 ### Public Interfaces, Types, And Contracts
 - `enum class ExecutionMode { LIVE, DRY_RUN }`
 - `enum class StepStatus { SUCCESS, FAILED, TIMED_OUT, SKIPPED_UNAVAILABLE, SKIPPED_DRY_RUN, CANCELLED_PRE_START }`
 - `enum class RunStatus { RUNNING, CANCELLED_PRE_START, COMPLETED_SUCCESS, COMPLETED_PARTIAL, COMPLETED_FAILED }`
-- `enum class ActionId { NOTIFY_MESSAGE_APP, LAUNCH_INTENT, UNINSTALL_APPS, DELETE_PATHS, ADVANCED_SHELL_COMMANDS }`
+- `enum class ActionId { SEND_SMS, NOTIFY_MESSAGE_APP, LAUNCH_INTENT, UNINSTALL_APPS, DELETE_PATHS, ADVANCED_SHELL_COMMANDS, SELF_UNINSTALL }`
 - `data class DeleteTarget(path: String, recursive: Boolean)`
 - `data class EmergencyProfile(...)` fields:
   - `sms_recipients: List<String>`
@@ -39,11 +40,13 @@ Profile actions also support launching custom intents with data as executable st
   - `triggers_enabled: Boolean` (global maintenance toggle)
 - `data class ActionBinding(...)` fields:
   - `action_id: ActionId`
+  - `binding_id: String` (stable instance key for policy targeting)
   - `package_name: String`
   - `activity_name: String?`
   - `enabled: Boolean`
 - `data class ActionPolicy(...)` fields:
   - `action_id: ActionId`
+  - `policy_key: String` (instance key; examples: `action:send_sms`, `binding:notify_message_app:<id>`, `intent:<id>`)
   - `enabled: Boolean`
   - `required: Boolean`
   - `continue_on_failure: Boolean`
@@ -110,7 +113,7 @@ Profile actions also support launching custom intents with data as executable st
   - `EmergencyStartReceiver` as single trigger entrypoint for shortcut/widget/QS tile
   - `EmergencyExecutionService` owns one active run job (`Mutex` guarded)
   - run uses a snapshot of profile/mode at start; profile edits affect only future runs
-  - run snapshot includes action bindings; one active binding per `ActionId` is resolved at start
+  - run snapshot includes all action instances (`action_bindings`, `intent_actions`) and their policies; all matching enabled instances can execute in one run
   - run snapshot includes `action_policies`, `intent_actions`, and `advanced_shell_commands`
 - Pipeline behavior:
   - user-configurable pre-start cancel window (default `2` seconds) before first side-effect step
@@ -120,6 +123,7 @@ Profile actions also support launching custom intents with data as executable st
   - no retries in v1
   - action orchestration:
     - actions execute by `execution_order`
+    - policy resolution is `policy_key` first, then action-level fallback
     - disabled actions are skipped
     - required action failure marks run as non-success even when continuation is allowed
     - `continue_on_failure=false` stops remaining actions in the same branch
@@ -134,11 +138,13 @@ Profile actions also support launching custom intents with data as executable st
 - SMS contract:
   - sequential best-effort fanout across recipients
   - per-recipient result logged
+  - recipients are required only when SMS action policy is marked `required=true`
   - template variables: `{timestamp}`, `{lat}`, `{lon}`, `{maps_url}`, `{trigger}`, `{altitude}`, `{accuracy}`, `{battery}`, `{locale}`, `{app_version}`
 - App-driven notify contract:
-  - message-app step uses user-selected app binding (package/activity) from profile
+  - message-app steps use user-selected app bindings (package/activity) from profile
   - provider abstraction supports Telegram and any selected compatible messaging app
-  - one selected binding per action; disabled or missing binding yields `SKIPPED_UNAVAILABLE`
+  - multiple bindings of the same action type are supported and can run in the same execution
+  - disabled or missing binding yields `SKIPPED_UNAVAILABLE`
   - provider capability enforcement:
     - if required capability (`supports_template`, `supports_target`, `supports_auto_send`) is missing, step is `SKIPPED_UNAVAILABLE`
   - success condition: provider execution returns success within timeout
@@ -146,6 +152,7 @@ Profile actions also support launching custom intents with data as executable st
   - no hardcoded pinned app version requirement in v1
 - Intent action contract:
   - each enabled `IntentActionSpec` is executed as a step according to action policy order
+  - multiple intent steps are supported and independently policy-controlled by `policy_key`
   - supports explicit action + data URI, optional mime type, optional explicit package/activity targeting
   - success condition: Android intent launch succeeds within timeout
   - if no resolver/missing target app: step is `SKIPPED_UNAVAILABLE`
@@ -176,7 +183,7 @@ Profile actions also support launching custom intents with data as executable st
   - Live mode checks include selected action-provider app availability and required grants
   - Live blocking checks matrix:
     - valid profile schema and required fields
-    - at least one valid recipient
+    - at least one valid recipient only when SMS action is required
     - message-app provider binding installed and launchable
     - enabled intent actions are structurally valid and resolvable (unless explicit optional policy marks them non-required)
     - required runtime permissions granted (SMS/location as configured)
@@ -253,6 +260,7 @@ Profile actions also support launching custom intents with data as executable st
     - `Test Provider` per app-driven action
     - `Reset Binding` and `Re-pick App` controls per action binding
   - action policy controls per action (`enabled`, `required`, `continue_on_failure`, `execution_order`)
+  - supports multiple instances of same type (multiple app bindings, multiple intents) with per-instance policy targeting
   - intent actions section:
     - add/edit/remove/reorder intent steps
     - configure action, data URI, optional package/activity, optional mime type, and extras

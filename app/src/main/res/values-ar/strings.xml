@@ -1,6 +1,22 @@
 <resources>
     <string name='app_name'>المفزع</string>
     <string name='home_title'>المفزع</string>
+    <string name='nav_home'>الرئيسية</string>
+    <string name='nav_profile'>الملف</string>
+    <string name='profile_title'>الملف</string>
+    <string name='profile_sms_recipients_label'>مستلمو الرسائل (واحد بكل سطر)</string>
+    <string name='profile_notify_target_label'>هدف تطبيق المراسلة</string>
+    <string name='profile_message_template_label'>قالب الرسالة</string>
+    <string name='profile_cancel_window_label'>نافذة الإلغاء (ثوانٍ)</string>
+    <string name='profile_location_timeout_label'>مهلة الموقع (ثوانٍ)</string>
+    <string name='profile_sms_timeout_label'>مهلة الرسائل (ثوانٍ)</string>
+    <string name='profile_intent_timeout_label'>مهلة النية (ثوانٍ)</string>
+    <string name='profile_destructive_enabled_label'>تفعيل الإجراءات التدميرية</string>
+    <string name='profile_triggers_enabled_label'>تفعيل المشغلات الخارجية</string>
+    <string name='profile_self_uninstall_enabled_label'>تفعيل إزالة التطبيق الذاتي</string>
+    <string name='profile_save_action'>حفظ الملف</string>
+    <string name='profile_saved_successfully'>تم حفظ الملف.</string>
+    <string name='profile_save_error_prefix'>فشل حفظ الملف: </string>
     <string name='preflight_title'>فحص الجاهزية</string>
     <string name='preflight_ready'>جاهز للتنفيذ المباشر.</string>
     <string name='preflight_shizuku_not_running'>Shizuku غير قيد التشغيل. شغّل Shizuku ثم حدّث الحالة.</string>
@@ -9,6 +25,8 @@
     <string name='preflight_unknown'>حالة الجاهزية غير معروفة.</string>
     <string name='preflight_refresh'>تحديث الحالة</string>
     <string name='preflight_request_permission'>طلب صلاحية Shizuku</string>
+    <string name='preflight_request_runtime_permissions'>منح صلاحيات التشغيل المطلوبة</string>
+    <string name='preflight_open_profile_setup'>فتح إعدادات الملف</string>
     <string name='run_actions_title'>التشغيل</string>
     <string name='run_live_action'>تشغيل مباشر</string>
     <string name='run_dry_run_action'>تشغيل تجريبي</string>

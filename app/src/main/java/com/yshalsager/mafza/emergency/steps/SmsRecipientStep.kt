@@ -5,8 +5,10 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.telephony.SmsManager
 import androidx.core.content.ContextCompat
-import com.yshalsager.mafza.core.contracts.EmergencyStep
+import com.yshalsager.mafza.core.contracts.ActionId
 import com.yshalsager.mafza.core.contracts.ExecutionMode
+import com.yshalsager.mafza.core.contracts.PolicyBoundEmergencyStep
+import com.yshalsager.mafza.core.contracts.StepBranch
 import com.yshalsager.mafza.core.contracts.StepContext
 import com.yshalsager.mafza.core.contracts.StepResult
 import com.yshalsager.mafza.core.contracts.StepStatus
@@ -21,7 +23,10 @@ class SmsRecipientStep(
     private val sms_sender: (suspend (recipient: String, message: String) -> Result<Unit>)? = null,
     private val message_renderer: ((StepContext, RunStepState) -> String)? = null,
     private val now_provider: () -> Long = { System.currentTimeMillis() }
-) : EmergencyStep {
+) : PolicyBoundEmergencyStep {
+    override val action_id: ActionId = ActionId.SEND_SMS
+    override val branch: StepBranch = StepBranch.NOTIFY
+
     override suspend fun execute(ctx: StepContext): StepResult {
         val started_at = now_provider()
         if (recipient.isBlank()) {

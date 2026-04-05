@@ -4,6 +4,7 @@ import android.content.Context
 import com.yshalsager.mafza.emergency.providers.ActionProviderRegistry
 import com.yshalsager.mafza.emergency.providers.IntentMessageAppProvider
 import com.yshalsager.mafza.emergency.shell.ShizukuCommandExecutor
+import com.yshalsager.mafza.core.contracts.ActionId
 import com.yshalsager.mafza.core.contracts.EmergencyStep
 import com.yshalsager.mafza.core.contracts.StepContext
 
@@ -33,11 +34,17 @@ object EmergencyStepsFactory {
                 recipient_index = index
             )
         }
-        steps += MessageAppProviderStep(
-            app_context = app_context,
-            action_provider_registry = action_provider_registry,
-            run_step_state = run_step_state
-        )
+        step_context.profile.action_bindings
+            .filter { it.action_id == ActionId.NOTIFY_MESSAGE_APP && it.enabled && it.binding_id.trim().isNotEmpty() }
+            .forEachIndexed { index, action_binding ->
+                steps += MessageAppProviderStep(
+                    app_context = app_context,
+                    action_provider_registry = action_provider_registry,
+                    run_step_state = run_step_state,
+                    action_binding = action_binding,
+                    binding_index = index
+                )
+            }
 
         step_context.profile.intent_actions.forEach { intent_action ->
             steps += LaunchIntentActionStep(

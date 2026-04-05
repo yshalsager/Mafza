@@ -17,6 +17,8 @@ enum class StepBranch {
 
 interface PolicyBoundEmergencyStep : EmergencyStep {
     val action_id: ActionId
+    val policy_key: String
+        get() = ActionPolicyKeys.for_action(action_id)
     val branch: StepBranch
 }
 

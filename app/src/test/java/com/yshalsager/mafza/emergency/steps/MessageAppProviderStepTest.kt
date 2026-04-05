@@ -22,26 +22,42 @@ import org.junit.Test
 
 class MessageAppProviderStepTest {
     @Test
-    fun `returns skipped unavailable when binding is missing`() = runTest {
+    fun `returns skipped unavailable when binding is disabled`() = runTest {
+        val binding = ActionBinding(
+            action_id = ActionId.NOTIFY_MESSAGE_APP,
+            package_name = "com.example.msg",
+            activity_name = null,
+            enabled = false
+        )
         val step = MessageAppProviderStep(
             app_context = null,
             action_provider_registry = ActionProviderRegistry(providers = emptyList()),
             run_step_state = RunStepState(),
+            action_binding = binding,
+            binding_index = 0,
             message_renderer = { _, _ -> "msg" }
         )
 
         val result = step.execute(test_step_context())
         assertEquals(StepStatus.SKIPPED_UNAVAILABLE, result.status)
-        assertEquals("missing_notify_binding", result.details)
+        assertEquals("notify_binding_disabled", result.details)
     }
 
     @Test
     fun `returns dry-run skip and does not execute provider`() = runTest {
         val fake_provider = FakeMessageProvider()
+        val binding = ActionBinding(
+            action_id = ActionId.NOTIFY_MESSAGE_APP,
+            package_name = "com.example.msg",
+            activity_name = null,
+            enabled = true
+        )
         val step = MessageAppProviderStep(
             app_context = null,
             action_provider_registry = ActionProviderRegistry(providers = listOf(fake_provider)),
             run_step_state = RunStepState(),
+            action_binding = binding,
+            binding_index = 0,
             message_renderer = { _, _ -> "msg" }
         )
 
@@ -64,10 +80,18 @@ class MessageAppProviderStepTest {
                 supports_auto_send = false
             )
         )
+        val binding = ActionBinding(
+            action_id = ActionId.NOTIFY_MESSAGE_APP,
+            package_name = "com.example.msg",
+            activity_name = null,
+            enabled = true
+        )
         val step = MessageAppProviderStep(
             app_context = null,
             action_provider_registry = ActionProviderRegistry(providers = listOf(fake_provider)),
             run_step_state = RunStepState(),
+            action_binding = binding,
+            binding_index = 0,
             message_renderer = { _, _ -> "msg" }
         )
 
@@ -89,10 +113,18 @@ class MessageAppProviderStepTest {
                 details = "provider_ok"
             )
         )
+        val binding = ActionBinding(
+            action_id = ActionId.NOTIFY_MESSAGE_APP,
+            package_name = "com.example.msg",
+            activity_name = null,
+            enabled = true
+        )
         val step = MessageAppProviderStep(
             app_context = null,
             action_provider_registry = ActionProviderRegistry(providers = listOf(fake_provider)),
             run_step_state = RunStepState(),
+            action_binding = binding,
+            binding_index = 0,
             message_renderer = { _, _ -> "msg" }
         )
 
@@ -116,10 +148,18 @@ class MessageAppProviderStepTest {
                 )
             }
         )
+        val binding = ActionBinding(
+            action_id = ActionId.NOTIFY_MESSAGE_APP,
+            package_name = "com.example.msg",
+            activity_name = null,
+            enabled = true
+        )
         val step = MessageAppProviderStep(
             app_context = null,
             action_provider_registry = ActionProviderRegistry(providers = listOf(fake_provider)),
             run_step_state = RunStepState(),
+            action_binding = binding,
+            binding_index = 0,
             message_renderer = { _, _ -> "msg" },
             timeout_millis_provider = { 500L }
         )

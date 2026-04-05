@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class ActionId {
+    SEND_SMS,
     NOTIFY_MESSAGE_APP,
     LAUNCH_INTENT,
     UNINSTALL_APPS,
@@ -21,6 +22,7 @@ data class DeleteTarget(
 @Serializable
 data class ActionBinding(
     val action_id: ActionId,
+    val binding_id: String = "",
     val package_name: String,
     val activity_name: String?,
     val enabled: Boolean
@@ -29,6 +31,7 @@ data class ActionBinding(
 @Serializable
 data class ActionPolicy(
     val action_id: ActionId,
+    val policy_key: String = ActionPolicyKeys.for_action(action_id),
     val enabled: Boolean,
     val required: Boolean,
     val continue_on_failure: Boolean,
@@ -83,3 +86,15 @@ data class EmergencyProfile(
     val destructive_actions_enabled: Boolean = false,
     val triggers_enabled: Boolean = true
 )
+
+object ActionPolicyKeys {
+    fun for_action(action_id: ActionId): String = "action:${action_id.name.lowercase()}"
+
+    fun for_binding(action_binding: ActionBinding): String {
+        val normalized_binding_id = action_binding.binding_id.trim()
+        if (normalized_binding_id.isEmpty()) return for_action(action_binding.action_id)
+        return "binding:${action_binding.action_id.name.lowercase()}:$normalized_binding_id"
+    }
+
+    fun for_intent(intent_action_id: String): String = "intent:${intent_action_id.trim().lowercase()}"
+}

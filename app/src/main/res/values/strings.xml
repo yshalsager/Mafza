@@ -1,6 +1,22 @@
 <resources>
     <string name='app_name'>Mafza</string>
     <string name='home_title'>Mafza</string>
+    <string name='nav_home'>Home</string>
+    <string name='nav_profile'>Profile</string>
+    <string name='profile_title'>Profile</string>
+    <string name='profile_sms_recipients_label'>SMS Recipients (one per line)</string>
+    <string name='profile_notify_target_label'>Message App Target</string>
+    <string name='profile_message_template_label'>Message Template</string>
+    <string name='profile_cancel_window_label'>Cancel Window (seconds)</string>
+    <string name='profile_location_timeout_label'>Location Timeout (seconds)</string>
+    <string name='profile_sms_timeout_label'>SMS Timeout (seconds)</string>
+    <string name='profile_intent_timeout_label'>Intent Timeout (seconds)</string>
+    <string name='profile_destructive_enabled_label'>Destructive Actions Enabled</string>
+    <string name='profile_triggers_enabled_label'>External Triggers Enabled</string>
+    <string name='profile_self_uninstall_enabled_label'>Self Uninstall Enabled</string>
+    <string name='profile_save_action'>Save Profile</string>
+    <string name='profile_saved_successfully'>Profile saved.</string>
+    <string name='profile_save_error_prefix'>Failed to save profile: </string>
     <string name='preflight_title'>Preflight</string>
     <string name='preflight_ready'>Ready for Live execution.</string>
     <string name='preflight_shizuku_not_running'>Shizuku is not running. Start Shizuku, then refresh status.</string>
@@ -9,6 +25,8 @@
     <string name='preflight_unknown'>Preflight status unknown.</string>
     <string name='preflight_refresh'>Refresh status</string>
     <string name='preflight_request_permission'>Request Shizuku permission</string>
+    <string name='preflight_request_runtime_permissions'>Grant required runtime permissions</string>
+    <string name='preflight_open_profile_setup'>Open profile setup</string>
     <string name='run_actions_title'>Run</string>
     <string name='run_live_action'>Run Live</string>
     <string name='run_dry_run_action'>Run Dry Run</string>

@@ -5,6 +5,7 @@ import com.yshalsager.mafza.emergency.providers.ActionProviderRegistry
 import com.yshalsager.mafza.core.contracts.ActionBinding
 import com.yshalsager.mafza.core.contracts.ActionId
 import com.yshalsager.mafza.core.contracts.ActionPolicy
+import com.yshalsager.mafza.core.contracts.ActionPolicyKeys
 import com.yshalsager.mafza.core.contracts.DeleteTarget
 import com.yshalsager.mafza.core.contracts.EmergencyProfile
 import com.yshalsager.mafza.core.contracts.IntentActionSpec
@@ -111,6 +112,53 @@ class PreflightValidatorTest {
     }
 
     @Test
+    fun `required policy can target one binding when multiple bindings exist`() {
+        val validator = validator(binding_available = false)
+        val primary_binding = ActionBinding(
+            action_id = ActionId.NOTIFY_MESSAGE_APP,
+            binding_id = "primary",
+            package_name = "com.example.one",
+            activity_name = null,
+            enabled = true
+        )
+        val secondary_binding = ActionBinding(
+            action_id = ActionId.NOTIFY_MESSAGE_APP,
+            binding_id = "secondary",
+            package_name = "com.example.two",
+            activity_name = null,
+            enabled = true
+        )
+        val profile = EmergencyProfile(
+            sms_recipients = listOf("+20123456789"),
+            action_bindings = listOf(primary_binding, secondary_binding),
+            action_policies = listOf(
+                ActionPolicy(
+                    action_id = ActionId.NOTIFY_MESSAGE_APP,
+                    policy_key = ActionPolicyKeys.for_binding(primary_binding),
+                    enabled = true,
+                    required = true,
+                    continue_on_failure = true,
+                    execution_order = 1
+                ),
+                ActionPolicy(
+                    action_id = ActionId.NOTIFY_MESSAGE_APP,
+                    policy_key = ActionPolicyKeys.for_binding(secondary_binding),
+                    enabled = true,
+                    required = false,
+                    continue_on_failure = true,
+                    execution_order = 2
+                )
+            )
+        )
+
+        val report = validator.validate(profile, ShizukuPermissionState())
+
+        assertFalse(report.live_ready)
+        assertTrue(report.live_blocking_issues.contains("required_binding_unavailable_notify_message_app"))
+        assertFalse(report.live_blocking_issues.contains("duplicate_enabled_action_bindings"))
+    }
+
+    @Test
     fun `invalid intent does not block when launch intent action is disabled`() {
         val validator = validator()
         val profile = EmergencyProfile(
@@ -158,6 +206,7 @@ class PreflightValidatorTest {
             action_bindings = listOf(
                 ActionBinding(
                     action_id = ActionId.NOTIFY_MESSAGE_APP,
+                    binding_id = "message_app_1",
                     package_name = "com.example.app",
                     activity_name = null,
                     enabled = true
@@ -178,6 +227,112 @@ class PreflightValidatorTest {
 
         assertFalse(report.live_ready)
         assertTrue(report.live_blocking_issues.contains("required_binding_unavailable_notify_message_app"))
+    }
+
+    @Test
+    fun `missing binding id blocks both live and dry run`() {
+        val validator = validator()
+        val profile = EmergencyProfile(
+            sms_recipients = listOf("+20123456789"),
+            action_bindings = listOf(
+                ActionBinding(
+                    action_id = ActionId.NOTIFY_MESSAGE_APP,
+                    package_name = "com.example.app",
+                    activity_name = null,
+                    enabled = true
+                )
+            ),
+            action_policies = listOf(
+                ActionPolicy(
+                    action_id = ActionId.NOTIFY_MESSAGE_APP,
+                    enabled = true,
+                    required = false,
+                    continue_on_failure = true,
+                    execution_order = 1
+                )
+            )
+        )
+
+        val report = validator.validate(profile, ShizukuPermissionState())
+
+        assertFalse(report.live_ready)
+        assertFalse(report.dry_run_ready)
+        assertTrue(report.live_blocking_issues.contains("action_binding_missing_binding_id"))
+        assertTrue(report.dry_run_blocking_issues.contains("action_binding_missing_binding_id"))
+    }
+
+    @Test
+    fun `duplicate binding id blocks both live and dry run`() {
+        val validator = validator()
+        val profile = EmergencyProfile(
+            sms_recipients = listOf("+20123456789"),
+            action_bindings = listOf(
+                ActionBinding(
+                    action_id = ActionId.NOTIFY_MESSAGE_APP,
+                    binding_id = "same_id",
+                    package_name = "com.example.one",
+                    activity_name = null,
+                    enabled = true
+                ),
+                ActionBinding(
+                    action_id = ActionId.NOTIFY_MESSAGE_APP,
+                    binding_id = "same_id",
+                    package_name = "com.example.two",
+                    activity_name = null,
+                    enabled = true
+                )
+            ),
+            action_policies = listOf(
+                ActionPolicy(
+                    action_id = ActionId.NOTIFY_MESSAGE_APP,
+                    policy_key = "binding:notify_message_app:same_id",
+                    enabled = true,
+                    required = false,
+                    continue_on_failure = true,
+                    execution_order = 1
+                )
+            )
+        )
+
+        val report = validator.validate(profile, ShizukuPermissionState())
+
+        assertFalse(report.live_ready)
+        assertFalse(report.dry_run_ready)
+        assertTrue(report.live_blocking_issues.contains("action_binding_duplicate_binding_id"))
+        assertTrue(report.dry_run_blocking_issues.contains("action_binding_duplicate_binding_id"))
+    }
+
+    @Test
+    fun `duplicate policy keys block both live and dry run`() {
+        val validator = validator()
+        val profile = EmergencyProfile(
+            sms_recipients = listOf("+20123456789"),
+            action_policies = listOf(
+                ActionPolicy(
+                    action_id = ActionId.NOTIFY_MESSAGE_APP,
+                    policy_key = "binding:notify_message_app:dup",
+                    enabled = true,
+                    required = false,
+                    continue_on_failure = true,
+                    execution_order = 1
+                ),
+                ActionPolicy(
+                    action_id = ActionId.NOTIFY_MESSAGE_APP,
+                    policy_key = "binding:notify_message_app:dup",
+                    enabled = true,
+                    required = true,
+                    continue_on_failure = true,
+                    execution_order = 2
+                )
+            )
+        )
+
+        val report = validator.validate(profile, ShizukuPermissionState())
+
+        assertFalse(report.live_ready)
+        assertFalse(report.dry_run_ready)
+        assertTrue(report.live_blocking_issues.contains("action_policy_invalid_or_duplicate_policy_key"))
+        assertTrue(report.dry_run_blocking_issues.contains("action_policy_invalid_or_duplicate_policy_key"))
     }
 
     @Test
@@ -223,9 +378,33 @@ class PreflightValidatorTest {
     }
 
     @Test
-    fun `missing recipients blocks both live and dry run`() {
+    fun `missing recipients do not block when sms is optional`() {
         val validator = validator()
         val report = validator.validate(EmergencyProfile(), ShizukuPermissionState())
+
+        assertTrue(report.live_ready)
+        assertTrue(report.dry_run_ready)
+        assertFalse(report.live_blocking_issues.contains("at_least_one_sms_recipient_required"))
+        assertFalse(report.dry_run_blocking_issues.contains("at_least_one_sms_recipient_required"))
+    }
+
+    @Test
+    fun `missing recipients block when sms action is required`() {
+        val validator = validator()
+        val report = validator.validate(
+            EmergencyProfile(
+                action_policies = listOf(
+                    ActionPolicy(
+                        action_id = ActionId.SEND_SMS,
+                        enabled = true,
+                        required = true,
+                        continue_on_failure = true,
+                        execution_order = 1
+                    )
+                )
+            ),
+            ShizukuPermissionState()
+        )
 
         assertFalse(report.live_ready)
         assertFalse(report.dry_run_ready)

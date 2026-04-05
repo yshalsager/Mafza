@@ -11,6 +11,7 @@ import com.yshalsager.mafza.emergency.providers.ActionProviderRegistry
 import com.yshalsager.mafza.core.contracts.ActionBinding
 import com.yshalsager.mafza.core.contracts.ActionId
 import com.yshalsager.mafza.core.contracts.ActionPolicy
+import com.yshalsager.mafza.core.contracts.ActionPolicyKeys
 import com.yshalsager.mafza.core.contracts.DeleteTarget
 import com.yshalsager.mafza.core.contracts.EmergencyProfile
 import com.yshalsager.mafza.core.contracts.IntentActionSpec
@@ -44,7 +45,9 @@ class PreflightValidator(
         val warnings = mutableListOf<String>()
 
         val recipients = profile.sms_recipients.map(String::trim).filter { it.isNotEmpty() }
-        if (recipients.isEmpty()) {
+        val sms_required = is_action_required(profile.action_policies, ActionId.SEND_SMS)
+        val sms_enabled = is_action_enabled(profile.action_policies, ActionId.SEND_SMS)
+        if (sms_required && recipients.isEmpty()) {
             live_blocking_issues += "at_least_one_sms_recipient_required"
             dry_run_blocking_issues += "at_least_one_sms_recipient_required"
         }
@@ -52,6 +55,10 @@ class PreflightValidator(
         if (!has_unique_execution_order_by_branch(profile.action_policies)) {
             live_blocking_issues += "action_policy_duplicate_execution_order"
             dry_run_blocking_issues += "action_policy_duplicate_execution_order"
+        }
+        if (!action_policy_keys_valid(profile.action_policies)) {
+            live_blocking_issues += "action_policy_invalid_or_duplicate_policy_key"
+            dry_run_blocking_issues += "action_policy_invalid_or_duplicate_policy_key"
         }
 
         if (!uninstall_allowlist_valid(profile.uninstall_allowlist)) {
@@ -70,7 +77,7 @@ class PreflightValidator(
         if (!has_location_permission()) {
             live_blocking_issues += "missing_location_permission"
         }
-        if (recipients.isNotEmpty() && !has_sms_permission()) {
+        if (sms_enabled && recipients.isNotEmpty() && !has_sms_permission()) {
             live_blocking_issues += "missing_send_sms_permission"
         }
         if (profile.destructive_actions_enabled && (!shizuku_permission_state.is_running || !shizuku_permission_state.is_permission_granted)) {
@@ -96,15 +103,32 @@ class PreflightValidator(
         warnings: MutableList<String>
     ) {
         val enabled_bindings = profile.action_bindings.filter { binding ->
-            binding.enabled && is_action_enabled(profile.action_policies, binding.action_id)
+            binding.enabled && is_action_enabled(
+                action_policies = profile.action_policies,
+                action_id = binding.action_id
+            )
         }
-        val duplicate_actions = enabled_bindings.groupBy { it.action_id }.filterValues { it.size > 1 }
-        if (duplicate_actions.isNotEmpty()) {
-            live_blocking_issues += "duplicate_enabled_action_bindings"
-            dry_run_blocking_issues += "duplicate_enabled_action_bindings"
+        val has_missing_binding_id = enabled_bindings.any { it.binding_id.trim().isEmpty() }
+        if (has_missing_binding_id) {
+            live_blocking_issues += "action_binding_missing_binding_id"
+            dry_run_blocking_issues += "action_binding_missing_binding_id"
+        }
+        val has_duplicate_binding_id = enabled_bindings
+            .map { it.action_id to it.binding_id.trim().lowercase() }
+            .filter { (_, binding_id) -> binding_id.isNotEmpty() }
+            .groupBy { it }
+            .values
+            .any { it.size > 1 }
+        if (has_duplicate_binding_id) {
+            live_blocking_issues += "action_binding_duplicate_binding_id"
+            dry_run_blocking_issues += "action_binding_duplicate_binding_id"
         }
 
         enabled_bindings.forEach { binding ->
+            if (binding.binding_id.trim().isEmpty()) return@forEach
+            val binding_policy_key = ActionPolicyKeys.for_binding(binding)
+            if (!is_action_enabled(profile.action_policies, binding.action_id, binding_policy_key)) return@forEach
+
             if (!PACKAGE_NAME_REGEX.matches(binding.package_name)) {
                 live_blocking_issues += "invalid_binding_package_${binding.action_id.name.lowercase()}"
                 dry_run_blocking_issues += "invalid_binding_package_${binding.action_id.name.lowercase()}"
@@ -114,7 +138,12 @@ class PreflightValidator(
             val binding_available = is_binding_available(binding)
             if (binding_available) return@forEach
 
-            if (is_action_required(profile.action_policies, binding.action_id)) {
+            if (is_action_required(
+                    action_policies = profile.action_policies,
+                    action_id = binding.action_id,
+                    policy_key = binding_policy_key
+                )
+            ) {
                 live_blocking_issues += "required_binding_unavailable_${binding.action_id.name.lowercase()}"
             } else {
                 warnings += "optional_binding_unavailable_${binding.action_id.name.lowercase()}"
@@ -128,9 +157,13 @@ class PreflightValidator(
         dry_run_blocking_issues: MutableList<String>,
         warnings: MutableList<String>
     ) {
-        if (!is_action_enabled(profile.action_policies, ActionId.LAUNCH_INTENT)) return
-
-        val enabled_intents = profile.intent_actions.filter { it.enabled }
+        val enabled_intents = profile.intent_actions.filter { intent_action ->
+            intent_action.enabled && is_action_enabled(
+                action_policies = profile.action_policies,
+                action_id = ActionId.LAUNCH_INTENT,
+                policy_key = ActionPolicyKeys.for_intent(intent_action.id)
+            )
+        }
         enabled_intents.forEach { intent_action ->
             if (intent_action.id.isBlank()) {
                 live_blocking_issues += "intent_action_missing_id"
@@ -146,7 +179,12 @@ class PreflightValidator(
             val resolvable = is_intent_resolvable(intent_action)
             if (resolvable) return@forEach
 
-            if (is_action_required(profile.action_policies, ActionId.LAUNCH_INTENT)) {
+            if (is_action_required(
+                    action_policies = profile.action_policies,
+                    action_id = ActionId.LAUNCH_INTENT,
+                    policy_key = ActionPolicyKeys.for_intent(intent_action.id)
+                )
+            ) {
                 live_blocking_issues += "required_intent_unresolvable_${intent_action.id}"
             } else {
                 warnings += "optional_intent_unresolvable_${intent_action.id}"
@@ -226,7 +264,7 @@ class PreflightValidator(
 
     private fun action_id_branch(action_id: ActionId): StepBranch {
         return when (action_id) {
-            ActionId.NOTIFY_MESSAGE_APP, ActionId.LAUNCH_INTENT -> StepBranch.NOTIFY
+            ActionId.SEND_SMS, ActionId.NOTIFY_MESSAGE_APP, ActionId.LAUNCH_INTENT -> StepBranch.NOTIFY
             ActionId.UNINSTALL_APPS, ActionId.DELETE_PATHS, ActionId.ADVANCED_SHELL_COMMANDS -> StepBranch.DESTRUCTIVE
             ActionId.SELF_UNINSTALL -> StepBranch.FINALIZE
         }
@@ -264,12 +302,54 @@ class PreflightValidator(
             }
     }
 
-    private fun is_action_required(action_policies: List<ActionPolicy>, action_id: ActionId): Boolean {
-        return action_policies.firstOrNull { it.action_id == action_id }?.required ?: false
+    private fun is_action_required(
+        action_policies: List<ActionPolicy>,
+        action_id: ActionId,
+        policy_key: String? = null
+    ): Boolean {
+        return resolve_action_policy(
+            action_policies = action_policies,
+            action_id = action_id,
+            policy_key = policy_key
+        )?.required ?: false
     }
 
-    private fun is_action_enabled(action_policies: List<ActionPolicy>, action_id: ActionId): Boolean {
-        return action_policies.firstOrNull { it.action_id == action_id }?.enabled ?: true
+    private fun is_action_enabled(
+        action_policies: List<ActionPolicy>,
+        action_id: ActionId,
+        policy_key: String? = null
+    ): Boolean {
+        return resolve_action_policy(
+            action_policies = action_policies,
+            action_id = action_id,
+            policy_key = policy_key
+        )?.enabled ?: true
+    }
+
+    private fun resolve_action_policy(
+        action_policies: List<ActionPolicy>,
+        action_id: ActionId,
+        policy_key: String?
+    ): ActionPolicy? {
+        val normalized_policy_key = policy_key?.trim().orEmpty()
+        if (normalized_policy_key.isNotEmpty()) {
+            unique_policy_by_key(action_policies, normalized_policy_key)?.let { return it }
+        }
+
+        val action_policy_key = ActionPolicyKeys.for_action(action_id)
+        unique_policy_by_key(action_policies, action_policy_key)?.let { return it }
+        return null
+    }
+
+    private fun unique_policy_by_key(action_policies: List<ActionPolicy>, policy_key: String): ActionPolicy? {
+        val matches = action_policies.filter { it.policy_key == policy_key }
+        return matches.singleOrNull()
+    }
+
+    private fun action_policy_keys_valid(action_policies: List<ActionPolicy>): Boolean {
+        val normalized_keys = action_policies.map { it.policy_key.trim() }
+        if (normalized_keys.any { it.isEmpty() }) return false
+        return normalized_keys.distinct().size == normalized_keys.size
     }
 
     companion object {

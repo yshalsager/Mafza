@@ -5,6 +5,8 @@ import com.yshalsager.mafza.core.contracts.EmergencyProfile
 import com.yshalsager.mafza.core.contracts.EmergencyStep
 import com.yshalsager.mafza.core.contracts.ExecutionMode
 import com.yshalsager.mafza.core.contracts.PolicyBoundEmergencyStep
+import com.yshalsager.mafza.core.contracts.ActionPolicy
+import com.yshalsager.mafza.core.contracts.ActionPolicyKeys
 import com.yshalsager.mafza.core.contracts.RunId
 import com.yshalsager.mafza.core.contracts.RunStatus
 import com.yshalsager.mafza.core.contracts.RunStatusDeriver
@@ -142,7 +144,7 @@ class DefaultEmergencyEngine(
                 profile = profile_snapshot,
                 started_at_epoch_ms = started_at
             )
-            val action_policies = profile_snapshot.action_policies.associateBy { it.action_id }
+            val action_policies = profile_snapshot.action_policies
 
             val steps = try {
                 steps_provider(step_context)
@@ -263,7 +265,7 @@ class DefaultEmergencyEngine(
 
     private fun build_step_execution_plan(
         steps: List<EmergencyStep>,
-        action_policies_by_id: Map<com.yshalsager.mafza.core.contracts.ActionId, com.yshalsager.mafza.core.contracts.ActionPolicy>
+        action_policies: List<ActionPolicy>
     ): List<PlannedExecutionStep> {
         val indexed_steps = steps.mapIndexed { index, step -> IndexedStep(index = index, step = step) }
         val non_policy_steps = indexed_steps
@@ -272,17 +274,17 @@ class DefaultEmergencyEngine(
 
         val notify_steps = ordered_policy_steps_for_branch(
             indexed_steps = indexed_steps,
-            action_policies_by_id = action_policies_by_id,
+            action_policies = action_policies,
             branch = StepBranch.NOTIFY
         )
         val destructive_steps = ordered_policy_steps_for_branch(
             indexed_steps = indexed_steps,
-            action_policies_by_id = action_policies_by_id,
+            action_policies = action_policies,
             branch = StepBranch.DESTRUCTIVE
         )
         val finalize_steps = ordered_policy_steps_for_branch(
             indexed_steps = indexed_steps,
-            action_policies_by_id = action_policies_by_id,
+            action_policies = action_policies,
             branch = StepBranch.FINALIZE
         )
 
@@ -291,15 +293,18 @@ class DefaultEmergencyEngine(
 
     private fun ordered_policy_steps_for_branch(
         indexed_steps: List<IndexedStep>,
-        action_policies_by_id: Map<com.yshalsager.mafza.core.contracts.ActionId, com.yshalsager.mafza.core.contracts.ActionPolicy>,
+        action_policies: List<ActionPolicy>,
         branch: StepBranch
     ): List<PlannedExecutionStep> {
+        val policies_by_key = action_policies.groupBy(ActionPolicy::policy_key)
         return indexed_steps
             .mapNotNull { indexed_step ->
                 val policy_step = indexed_step.step as? PolicyBoundEmergencyStep ?: return@mapNotNull null
                 if (policy_step.branch != branch) return@mapNotNull null
 
-                val resolved_policy = action_policies_by_id[policy_step.action_id] ?: default_action_policy(policy_step.action_id)
+                val resolved_policy = unique_policy_by_key(policies_by_key, policy_step.policy_key)
+                    ?: unique_policy_by_key(policies_by_key, ActionPolicyKeys.for_action(policy_step.action_id))
+                    ?: default_action_policy(policy_step.action_id, policy_step.policy_key)
                 PlannedExecutionStep(
                     step = indexed_step.step,
                     policy = resolved_policy,
@@ -310,9 +315,18 @@ class DefaultEmergencyEngine(
             .sortedWith(compareBy({ it.order }, { it.original_index }))
     }
 
-    private fun default_action_policy(action_id: com.yshalsager.mafza.core.contracts.ActionId): com.yshalsager.mafza.core.contracts.ActionPolicy {
-        return com.yshalsager.mafza.core.contracts.ActionPolicy(
+    private fun unique_policy_by_key(
+        policies_by_key: Map<String, List<ActionPolicy>>,
+        policy_key: String
+    ): ActionPolicy? {
+        val matches = policies_by_key[policy_key] ?: return null
+        return matches.singleOrNull()
+    }
+
+    private fun default_action_policy(action_id: com.yshalsager.mafza.core.contracts.ActionId, policy_key: String): com.yshalsager.mafza.core.contracts.ActionPolicy {
+        return ActionPolicy(
             action_id = action_id,
+            policy_key = policy_key,
             enabled = true,
             required = false,
             continue_on_failure = true,

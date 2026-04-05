@@ -12,10 +12,15 @@
 ## 1) Core Domain Contracts
 - [x] Add core enums: `ExecutionMode`, `StepStatus`, `RunStatus`, `ActionId`
 - [x] Add core models: `DeleteTarget`, `ActionBinding`, `ActionPolicy`, `ShellCommandSpec`, `ProviderCapabilities`
+- [x] Extend action model for instance-level control:
+  - [x] `ActionId.SEND_SMS`
+  - [x] `ActionBinding.binding_id`
+  - [x] `ActionPolicy.policy_key`
 - [x] Add `EmergencyProfile` with all profile customization fields
 - [x] Add engine interfaces: `EmergencyEngine`, `EmergencyStep`
 - [x] Add provider interface: `ActionProvider` (+ preflight and execute contracts)
 - [x] Add backup contracts: `BackupPayload`, `BackupService`, `RestoreResult`
+- [x] Dev-policy: no pre-v1 backward compatibility guarantees for profile schema/policy resolution
 
 ## 2) Persistence And Security
 - [ ] Implement DataStore (Proto) for profile storage
@@ -35,12 +40,16 @@
 - [x] Implement run state and completion rules (`SUCCESS/PARTIAL/FAILED`)
 - [x] Implement branch orchestration and action `execution_order`
 - [x] Implement per-action `required` and `continue_on_failure` logic
+- [x] Resolve policies by `policy_key` (instance-first) with action-level fallback
 
 ## 4) Actions (Live + Dry Run)
 - [x] Location step with configurable timeout (`location_timeout_seconds`, default 8s)
 - [x] SMS step (sequential fanout, per recipient logging)
 - [x] Intent launch step (`IntentActionSpec`, live + dry-run behavior)
 - [x] Message-app provider step (20s timeout, capability checks, unavailable fallback)
+- [x] Allow multiple same-type action instances in one run:
+  - [x] multiple message-app bindings
+  - [x] multiple intent actions
 - [x] Uninstall step via Shizuku (`pm uninstall --user 0 <package>`, 15s each)
 - [x] Delete step via Shizuku (`rm`/`rmdir` contracts, 15s each target)
 - [x] Advanced shell commands step:
@@ -57,6 +66,8 @@
 - [x] Implement advanced-shell validation (`argv` required for safe mode, `raw_shell` gated)
 - [x] Implement Live blocking checks matrix
 - [x] Implement Dry Run partial preflight policy
+- [x] Make SMS recipient requirement policy-driven (`required SEND_SMS` only)
+- [x] Remove duplicate-binding hard block to allow same-type action instances
 - [ ] Implement warning states
   - [x] provider capability warnings
   - [ ] backup passphrase not tested
@@ -77,10 +88,14 @@
 ## 7) UI Foundation
 - [ ] Before each UI implementation/PR, consult `~/.codex/skill-sources/compose-skill/jetpack-compose-expert-skill/SKILL.md` and relevant `references/*`
 - [ ] Set up Navigation Compose routes: `Home`, `Profile`, `History`, `RunDetails(runId)`
+  - [x] `Home`
+  - [x] `Profile`
+  - [ ] `History`
+  - [ ] `RunDetails(runId)`
 - [ ] Implement app theme with Material 3 + token layer
 - [ ] Add dynamic color support:
-  - [ ] Android 12+: dynamic scheme
-  - [ ] Android 11: static Mafza palette fallback
+  - [x] Android 12+: dynamic scheme
+  - [x] Android 11: static Mafza palette fallback
 - [ ] Implement English + Arabic localization and RTL layout support
 - [ ] Implement accessibility baseline (contrast, touch targets, semantics, dynamic type)
 
@@ -92,13 +107,13 @@
   - [x] full-screen cancel overlay (duration reflects user setting)
   - [ ] health card (last successful Live/Dry Run + stale warning)
 - [ ] Profile:
-  - [ ] Single settings form
-  - [ ] cancel-window duration setting (`cancel_window_seconds`)
-  - [ ] action timeout settings (`location_timeout_seconds`, `sms_timeout_seconds`, `intent_timeout_seconds`)
-  - [ ] action/provider picker and provider test actions
-  - [ ] action policy controls (enabled/required/continue/order)
+  - [x] Single settings form
+  - [x] cancel-window duration setting (`cancel_window_seconds`)
+  - [x] action timeout settings (`location_timeout_seconds`, `sms_timeout_seconds`, `intent_timeout_seconds`)
+  - [ ] action/provider picker and provider test actions (multi-instance)
+  - [ ] action policy controls (enabled/required/continue/order, per-instance via `policy_key`)
   - [ ] advanced shell command editor (add/edit/reorder)
-  - [ ] global safety toggles (`Destructive Actions Enabled`, `Triggers Enabled`)
+  - [x] global safety toggles (`Destructive Actions Enabled`, `Triggers Enabled`)
   - [ ] biometric/PIN gate for sensitive edits
   - [ ] backup/restore UI flow (export, restore, preview, confirm)
 - [ ] History:

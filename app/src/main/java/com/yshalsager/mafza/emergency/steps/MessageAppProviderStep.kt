@@ -4,6 +4,7 @@ import android.content.Context
 import com.yshalsager.mafza.emergency.providers.ActionProviderRegistry
 import com.yshalsager.mafza.core.contracts.ActionBinding
 import com.yshalsager.mafza.core.contracts.ActionId
+import com.yshalsager.mafza.core.contracts.ActionPolicyKeys
 import com.yshalsager.mafza.core.contracts.ExecutionMode
 import com.yshalsager.mafza.core.contracts.PolicyBoundEmergencyStep
 import com.yshalsager.mafza.core.contracts.ProviderCapabilities
@@ -18,21 +19,26 @@ class MessageAppProviderStep(
     private val app_context: Context?,
     private val action_provider_registry: ActionProviderRegistry,
     private val run_step_state: RunStepState,
+    private val action_binding: ActionBinding,
+    private val binding_index: Int,
     private val message_renderer: ((StepContext, RunStepState) -> String)? = null,
     private val timeout_millis_provider: (StepContext) -> Long = { 20_000L },
     private val now_provider: () -> Long = { System.currentTimeMillis() }
 ) : PolicyBoundEmergencyStep {
     override val action_id: ActionId = ActionId.NOTIFY_MESSAGE_APP
+    override val policy_key: String = ActionPolicyKeys.for_binding(action_binding)
     override val branch: StepBranch = StepBranch.NOTIFY
 
     override suspend fun execute(ctx: StepContext): StepResult {
         val started_at = now_provider()
-        val binding = resolve_binding(ctx)
-            ?: return step_result(
+        if (!action_binding.enabled) {
+            return step_result(
                 status = StepStatus.SKIPPED_UNAVAILABLE,
-                details = "missing_notify_binding",
+                details = "notify_binding_disabled",
                 started_at = started_at
             )
+        }
+
         val provider = action_provider_registry.provider_for(ActionId.NOTIFY_MESSAGE_APP)
             ?: return step_result(
                 status = StepStatus.SKIPPED_UNAVAILABLE,
@@ -40,7 +46,7 @@ class MessageAppProviderStep(
                 started_at = started_at
             )
 
-        if (!provider.isAvailable(binding)) {
+        if (!provider.isAvailable(action_binding)) {
             return step_result(
                 status = StepStatus.SKIPPED_UNAVAILABLE,
                 details = "provider_unavailable",
@@ -49,7 +55,7 @@ class MessageAppProviderStep(
         }
 
         val required_capabilities = required_capabilities(ctx)
-        val provider_capabilities = provider.capabilities(binding)
+        val provider_capabilities = provider.capabilities(action_binding)
         if (!meets_required_capabilities(required_capabilities, provider_capabilities)) {
             return step_result(
                 status = StepStatus.SKIPPED_UNAVAILABLE,
@@ -58,7 +64,7 @@ class MessageAppProviderStep(
             )
         }
 
-        val preflight = provider.preflight(binding)
+        val preflight = provider.preflight(action_binding)
         if (!preflight.ready) {
             return step_result(
                 status = StepStatus.SKIPPED_UNAVAILABLE,
@@ -82,7 +88,7 @@ class MessageAppProviderStep(
                 request = ProviderRequest(
                     run_id = ctx.run_id,
                     mode = ctx.mode,
-                    action_binding = binding,
+                    action_binding = action_binding,
                     notify_target = ctx.profile.notify_target,
                     rendered_message = message,
                     timeout_seconds = (timeout_millis / 1_000L).toInt()
@@ -99,12 +105,6 @@ class MessageAppProviderStep(
             details = provider_result.details,
             started_at = started_at
         )
-    }
-
-    private fun resolve_binding(ctx: StepContext): ActionBinding? {
-        return ctx.profile.action_bindings.firstOrNull { binding ->
-            binding.action_id == ActionId.NOTIFY_MESSAGE_APP && binding.enabled
-        }
     }
 
     private fun required_capabilities(ctx: StepContext): ProviderCapabilities {
@@ -142,7 +142,7 @@ class MessageAppProviderStep(
         started_at: Long
     ): StepResult {
         return StepResult(
-            step_id = STEP_ID,
+            step_id = "${STEP_ID}_${binding_index + 1}",
             status = status,
             details = details,
             started_at_epoch_ms = started_at,
