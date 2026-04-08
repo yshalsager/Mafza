@@ -122,9 +122,9 @@
   - [ ] biometric/PIN gate for sensitive edits
   - [ ] backup/restore UI flow (export, restore, preview, confirm)
 - [ ] History:
-  - [ ] compact rows + expandable step details
-  - [ ] mode/status badges
-  - [ ] run details navigation
+  - [x] compact rows + expandable step details
+  - [x] mode/status badges
+  - [x] run details navigation
 
 ## 9) Triggers And Surface Integrations
 - [x] Launcher shortcut trigger

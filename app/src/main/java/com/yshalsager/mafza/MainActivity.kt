@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
@@ -36,8 +37,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.yshalsager.mafza.core.contracts.EmergencyProfile
 import com.yshalsager.mafza.core.contracts.ExecutionMode
+import com.yshalsager.mafza.core.data.history.MafzaHistoryDatabase
+import com.yshalsager.mafza.core.data.history.RunHistoryDao
 import com.yshalsager.mafza.core.data.profile.AndroidKeystoreProfileCipher
 import com.yshalsager.mafza.core.data.profile.EncryptedProfileStore
 import com.yshalsager.mafza.core.data.profile.ProfileDataStoreFactory
@@ -57,6 +61,9 @@ import kotlinx.coroutines.launch
 
 private const val MIN_CANCEL_WINDOW_SECONDS = 1
 private const val MAX_CANCEL_WINDOW_SECONDS = 30
+private const val RUN_DETAILS_ROUTE_BASE = "run_details"
+private const val RUN_DETAILS_ARG_RUN_ID = "run_id"
+private const val RUN_DETAILS_ROUTE_PATTERN = "$RUN_DETAILS_ROUTE_BASE/{$RUN_DETAILS_ARG_RUN_ID}"
 
 class MainActivity : ComponentActivity() {
     private val profile_store by lazy {
@@ -66,6 +73,8 @@ class MainActivity : ComponentActivity() {
         )
     }
     private val shizuku_permission_manager by lazy { ShizukuPermissionManager() }
+    private val history_database by lazy { MafzaHistoryDatabase.create(applicationContext) }
+    private val history_dao by lazy { history_database.run_history_dao() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -75,6 +84,7 @@ class MainActivity : ComponentActivity() {
                 MafzaApp(
                     app_context = applicationContext,
                     profile_store = profile_store,
+                    history_dao = history_dao,
                     shizuku_permission_manager = shizuku_permission_manager
                 )
             }
@@ -83,6 +93,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         shizuku_permission_manager.close()
+        history_database.close()
         super.onDestroy()
     }
 }
@@ -92,6 +103,7 @@ class MainActivity : ComponentActivity() {
 private fun MafzaApp(
     app_context: Context,
     profile_store: EncryptedProfileStore,
+    history_dao: RunHistoryDao,
     shizuku_permission_manager: ShizukuPermissionManager
 ) {
     val profile by profile_store.profile_flow.collectAsStateWithLifecycle(initialValue = EmergencyProfile())
@@ -129,6 +141,7 @@ private fun MafzaApp(
     val nav_controller = rememberNavController()
     val back_stack_entry by nav_controller.currentBackStackEntryAsState()
     val current_route = back_stack_entry?.destination?.route ?: AppRoute.HOME.route
+    val is_run_details_route = current_route == RUN_DETAILS_ROUTE_PATTERN
 
     LaunchedEffect(
         shizuku_state.is_running,
@@ -152,11 +165,25 @@ private fun MafzaApp(
         topBar = {
             val title_res_id = if (current_route == AppRoute.PROFILE.route) {
                 R.string.profile_title
+            } else if (current_route == AppRoute.HISTORY.route) {
+                R.string.history_title
+            } else if (is_run_details_route) {
+                R.string.run_details_title
             } else {
                 R.string.home_title
             }
             CenterAlignedTopAppBar(
                 title = { Text(text = stringResource(title_res_id)) },
+                navigationIcon = {
+                    if (is_run_details_route) {
+                        IconButton(onClick = { nav_controller.popBackStack() }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.run_details_back_action)
+                            )
+                        }
+                    }
+                },
                 actions = {
                     if (current_route == AppRoute.PROFILE.route) {
                         IconButton(onClick = { profile_add_action_nonce += 1 }) {
@@ -170,18 +197,20 @@ private fun MafzaApp(
             )
         },
         bottomBar = {
-            AppBottomNavigationBar(
-                current_route = current_route,
-                on_navigate = { route ->
-                    nav_controller.navigate(route) {
-                        launchSingleTop = true
-                        restoreState = true
-                        popUpTo(nav_controller.graph.startDestinationId) {
-                            saveState = true
+            if (!is_run_details_route) {
+                AppBottomNavigationBar(
+                    current_route = current_route,
+                    on_navigate = { route ->
+                        nav_controller.navigate(route) {
+                            launchSingleTop = true
+                            restoreState = true
+                            popUpTo(nav_controller.graph.startDestinationId) {
+                                saveState = true
+                            }
                         }
                     }
-                }
-            )
+                )
+            }
         }
     ) { inner_padding ->
         Box(
@@ -250,6 +279,23 @@ private fun MafzaApp(
                         on_add_action_nonce_consumed = { profile_add_action_nonce = 0 }
                     )
                 }
+                composable(AppRoute.HISTORY.route) {
+                    HistoryScreen(
+                        history_dao = history_dao,
+                        on_open_run_details = { run_id ->
+                            nav_controller.navigate(run_details_route(run_id))
+                        }
+                    )
+                }
+                composable(
+                    route = RUN_DETAILS_ROUTE_PATTERN,
+                    arguments = listOf(navArgument(RUN_DETAILS_ARG_RUN_ID) { defaultValue = "" })
+                ) { nav_back_stack_entry ->
+                    RunDetailsScreen(
+                        run_id = nav_back_stack_entry.arguments?.getString(RUN_DETAILS_ARG_RUN_ID).orEmpty(),
+                        history_dao = history_dao
+                    )
+                }
             }
         }
     }
@@ -298,3 +344,5 @@ private fun MafzaApp(
         )
     }
 }
+
+private fun run_details_route(run_id: String): String = "$RUN_DETAILS_ROUTE_BASE/$run_id"

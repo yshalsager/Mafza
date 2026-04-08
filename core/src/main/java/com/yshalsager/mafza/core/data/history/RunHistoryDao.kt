@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface RunHistoryDao {
@@ -31,8 +32,17 @@ interface RunHistoryDao {
     @Query("SELECT * FROM run_history ORDER BY started_at_epoch_ms DESC LIMIT :limit")
     suspend fun latest_runs(limit: Int): List<RunHistoryEntity>
 
+    @Query("SELECT * FROM run_history ORDER BY started_at_epoch_ms DESC LIMIT :limit")
+    fun latest_runs_flow(limit: Int): Flow<List<RunHistoryEntity>>
+
+    @Query("SELECT * FROM run_history WHERE run_id = :run_id LIMIT 1")
+    fun run_by_id_flow(run_id: String): Flow<RunHistoryEntity?>
+
     @Query("SELECT * FROM step_history WHERE run_id IN (:run_ids) ORDER BY run_id ASC, step_index ASC")
     suspend fun steps_for_runs(run_ids: List<String>): List<StepHistoryEntity>
+
+    @Query("SELECT * FROM step_history WHERE run_id = :run_id ORDER BY step_index ASC")
+    fun steps_for_run_flow(run_id: String): Flow<List<StepHistoryEntity>>
 
     @Query("SELECT * FROM command_audit WHERE run_id IN (:run_ids) ORDER BY run_id ASC, step_index ASC, command_index ASC")
     suspend fun command_audits_for_runs(run_ids: List<String>): List<CommandAuditEntity>

@@ -19,7 +19,8 @@ internal enum class AppRoute(
     val label_res_id: Int
 ) {
     HOME(route = "home", label_res_id = R.string.nav_home),
-    PROFILE(route = "profile", label_res_id = R.string.nav_profile)
+    PROFILE(route = "profile", label_res_id = R.string.nav_profile),
+    HISTORY(route = "history", label_res_id = R.string.nav_history)
 }
 
 internal enum class ProfilePolicyMode {

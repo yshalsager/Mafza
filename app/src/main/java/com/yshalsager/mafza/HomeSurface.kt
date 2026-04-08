@@ -9,7 +9,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -38,7 +43,16 @@ internal fun AppBottomNavigationBar(
             NavigationBarItem(
                 selected = is_selected,
                 onClick = { on_navigate(route.route) },
-                icon = { Text(text = if (route == AppRoute.HOME) "H" else "P") },
+                icon = {
+                    Icon(
+                        imageVector = when (route) {
+                            AppRoute.HOME -> Icons.Filled.Home
+                            AppRoute.PROFILE -> Icons.Filled.Person
+                            AppRoute.HISTORY -> Icons.Filled.History
+                        },
+                        contentDescription = stringResource(route.label_res_id)
+                    )
+                },
                 label = { Text(text = stringResource(route.label_res_id)) }
             )
         }
