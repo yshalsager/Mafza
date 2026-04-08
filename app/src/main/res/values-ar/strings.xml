@@ -301,4 +301,10 @@
     <string name='emergency_notification_running'>التشغيل قيد التنفيذ</string>
     <string name='emergency_notification_cancel_window'>نافذة الإلغاء مفتوحة</string>
     <string name='emergency_notification_cancelled'>تم إلغاء التشغيل قبل البدء</string>
+    <string name='shortcut_emergency_short_label'>تشغيل طوارئ</string>
+    <string name='shortcut_emergency_long_label'>ابدأ تشغيل المفزع المباشر للطوارئ</string>
+    <string name='widget_emergency_title'>طوارئ المفزع</string>
+    <string name='widget_emergency_description'>مشغّل الشاشة الرئيسية لتشغيل المفزع المباشر</string>
+    <string name='widget_emergency_run_live_action'>تشغيل مباشر</string>
+    <string name='quick_settings_tile_label'>طوارئ المفزع</string>
 </resources>

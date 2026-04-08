@@ -8,6 +8,7 @@
 ### Summary
 Build **Mafza** as an Android 11+ emergency app with one fixed profile and one execution engine.
 All external triggers (shortcut/widget/QS tile) start **Live** mode immediately, show a **user-configurable cancel window** (default **2s**), then run best-effort parallel branches.
+In v1, external-trigger caller restriction is intentionally coarse: when external triggers are enabled, any explicit app/component launch path that reaches a trigger surface is treated as a valid external trigger.
 A separate **Dry Run** can be started manually from inside the app and executes the same pipeline without side effects.
 Backup/restore is supported for profile recovery through encrypted export/import.
 Action execution is fully customizable: user selects app/provider bindings per app-driven action.
@@ -37,7 +38,7 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
   - `intent_actions: List<IntentActionSpec>`
   - `advanced_shell_commands: List<ShellCommandSpec>`
   - `destructive_actions_enabled: Boolean` (global safety toggle)
-  - `triggers_enabled: Boolean` (global maintenance toggle)
+  - `triggers_enabled: Boolean` (global maintenance toggle; gates all external trigger sources, including explicit component calls)
 - `data class ActionBinding(...)` fields:
   - `action_id: ActionId`
   - `binding_id: String` (stable instance key for policy targeting)
@@ -111,7 +112,10 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
   - dependency version policy: use latest stable releases at implementation start; do not use alpha/beta/rc versions
 - Entry/runtime:
   - `EmergencyStartReceiver` as single trigger entrypoint for shortcut/widget/QS tile
+  - launcher shortcut proxy activity dispatches to the same receiver action path
+  - widget and QS tile dispatch to the same receiver action path
   - `EmergencyExecutionService` owns one active run job (`Mutex` guarded)
+  - external triggers are allowed only when `profile.triggers_enabled=true`; manual in-app runs are always allowed
   - run uses a snapshot of profile/mode at start; profile edits affect only future runs
   - run snapshot includes all action instances (`action_bindings`, `intent_actions`) and their policies; all matching enabled instances can execute in one run
   - run snapshot includes `action_policies`, `intent_actions`, and `advanced_shell_commands`
@@ -235,8 +239,8 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
   - debug and release can be installed side-by-side on same device
   - debug variant has explicit debug app label and icon treatment to avoid operator confusion
   - output naming:
-    - debug: `mafza-debug.apk`
-    - release: `mafza-release.apk`
+    - debug: `mafza-<version>-debug.apk`
+    - release: `mafza-<version>-release.apk`
   - release artifact remains clean `Mafza` package for internal distribution
 
 ### UI Experience (Agreed)
@@ -291,6 +295,7 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
   - dangerous raw-shell mode shows persistent warning state in Profile and preflight
 - Trigger affordances:
   - widget and QS tile use explicit mode-safe labels and emergency wording (not icon-only)
+  - caller model is intentional in v1: if external triggers are enabled, trigger components are considered acceptable external entrypoints
 - Localization and accessibility:
   - v1 ships English + Arabic with full RTL support
   - accessibility baseline: 4.5:1 text contrast, 48dp minimum touch targets, semantic labels, dynamic type support

@@ -127,10 +127,11 @@
   - [ ] run details navigation
 
 ## 9) Triggers And Surface Integrations
-- [ ] Launcher shortcut trigger
-- [ ] Home widget trigger and labels
-- [ ] QS tile trigger and labels
+- [x] Launcher shortcut trigger
+- [x] Home widget trigger and labels
+- [x] QS tile trigger and labels
 - [x] Ensure external triggers always force `LIVE`
+- [x] Honor profile `triggers_enabled` toggle for external trigger sources
 
 ## 10) Test Coverage
 - [x] Core unit tests for engine status/policy resolution, validators, and step behavior
@@ -141,6 +142,9 @@
   - [x] message-provider step with capability-gated share target
   - [x] SMS step permission-gate behavior
 - [ ] Instrumentation tests for trigger routing, service lifecycle, UI flows
+  - [x] trigger routing and external-trigger mode/toggle behavior
+  - [ ] foreground service lifecycle
+  - [ ] key UI flows
 - [ ] Device tests for Shizuku authorized/unauthorized behavior
 - [x] Device tests for provider unavailable fallback and dry-run no-side-effects
 - [ ] Screenshot regression tests for key UI states

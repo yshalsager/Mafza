@@ -301,4 +301,10 @@
     <string name='emergency_notification_running'>Run in progress</string>
     <string name='emergency_notification_cancel_window'>Cancel window is open</string>
     <string name='emergency_notification_cancelled'>Run cancelled before start</string>
+    <string name='shortcut_emergency_short_label'>Emergency Run</string>
+    <string name='shortcut_emergency_long_label'>Start Mafza emergency live run</string>
+    <string name='widget_emergency_title'>Mafza Emergency</string>
+    <string name='widget_emergency_description'>Home screen trigger for Mafza emergency live run</string>
+    <string name='widget_emergency_run_live_action'>Run Live</string>
+    <string name='quick_settings_tile_label'>Mafza Emergency</string>
 </resources>

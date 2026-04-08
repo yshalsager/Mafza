@@ -81,12 +81,18 @@ class EmergencyExecutionService : Service() {
                 val requested_mode = parse_execution_mode(
                     intent.getStringExtra(EmergencyServiceContract.EXTRA_EXECUTION_MODE)
                 )
-
-                val run_id = emergency_engine.start(
-                    trigger = trigger,
-                    mode = requested_mode
-                )
-                latest_run_id = run_id
+                service_scope.launch {
+                    val should_start = should_start_run(trigger)
+                    if (!should_start) {
+                        stopSelfResult(start_id)
+                        return@launch
+                    }
+                    val run_id = emergency_engine.start(
+                        trigger = trigger,
+                        mode = requested_mode
+                    )
+                    latest_run_id = run_id
+                }
             }
 
             EmergencyServiceContract.ACTION_CANCEL_RUN -> {
@@ -208,6 +214,12 @@ class EmergencyExecutionService : Service() {
     private fun parse_execution_mode(raw: String?): ExecutionMode {
         return runCatching { ExecutionMode.valueOf(raw.orEmpty()) }
             .getOrDefault(ExecutionMode.LIVE)
+    }
+
+    private suspend fun should_start_run(trigger: TriggerSource): Boolean {
+        if (trigger == TriggerSource.MANUAL_IN_APP) return true
+        return runCatching { profile_store.read_profile().triggers_enabled }
+            .getOrDefault(true)
     }
 
     private fun create_notification_channel() {

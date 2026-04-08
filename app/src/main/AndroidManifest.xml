@@ -25,11 +25,23 @@
             android:name='.MainActivity'
             android:exported='true'
             android:theme='@style/Theme.Mafza'>
+            <meta-data
+                android:name='android.app.shortcuts'
+                android:resource='@xml/shortcuts' />
             <intent-filter>
                 <action android:name='android.intent.action.MAIN' />
                 <category android:name='android.intent.category.LAUNCHER' />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name='.emergency.EmergencyShortcutProxyActivity'
+            android:exported='true'
+            android:excludeFromRecents='true'
+            android:launchMode='singleTask'
+            android:noHistory='true'
+            android:taskAffinity=''
+            android:theme='@style/Theme.Mafza.Transparent' />
 
         <service
             android:name='.emergency.EmergencyExecutionService'
@@ -47,6 +59,30 @@
                 <action android:name='com.yshalsager.mafza.action.TRIGGER_QUICK_SETTINGS_TILE' />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name='.emergency.EmergencyWidgetProvider'
+            android:enabled='true'
+            android:exported='true'>
+            <intent-filter>
+                <action android:name='android.appwidget.action.APPWIDGET_UPDATE' />
+            </intent-filter>
+            <meta-data
+                android:name='android.appwidget.provider'
+                android:resource='@xml/emergency_widget_info' />
+        </receiver>
+
+        <service
+            android:name='.emergency.EmergencyQuickSettingsTileService'
+            android:enabled='true'
+            android:exported='true'
+            android:icon='@drawable/ic_emergency_trigger'
+            android:label='@string/quick_settings_tile_label'
+            android:permission='android.permission.BIND_QUICK_SETTINGS_TILE'>
+            <intent-filter>
+                <action android:name='android.service.quicksettings.action.QS_TILE' />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>
