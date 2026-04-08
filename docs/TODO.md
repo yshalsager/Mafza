@@ -1,10 +1,11 @@
 # Mafza v1 Implementation TODO
 
 ## 0) Project Bootstrap
+- [ ] Before each UI implementation/PR, consult `~/.codex/skill-sources/compose-skill/jetpack-compose-expert-skill/SKILL.md` and relevant `references/*`
 - [x] Initialize Android project with modules `:app` and `:core`
 - [x] Set `applicationId` release to `com.yshalsager.mafza`
 - [x] Set debug `applicationId` to `com.yshalsager.mafza.debug` and `versionNameSuffix` `-debug`
-- [x] Configure output artifacts: `mafza-debug.apk`, `mafza-release.apk`
+- [x] Configure output artifacts: `mafza-<version>-debug.apk`, `mafza-<version>-release.apk`
 - [x] Configure JDK 17 toolchain
 - [x] Add stable-only dependency policy (no alpha/beta/rc)
 - [x] Configure version catalog and pin latest stable versions
@@ -23,13 +24,14 @@
 - [x] Dev-policy: no pre-v1 backward compatibility guarantees for profile schema/policy resolution
 
 ## 2) Persistence And Security
-- [ ] Implement DataStore (Proto) for profile storage
+- [x] Implement DataStore-backed profile storage pipeline
 - [x] Implement encrypted DataStore profile storage (typed serializer baseline)
 - [x] Implement Room for run/step history
 - [x] Add retention pruning to keep latest 100 runs
 - [x] Implement encrypted-at-rest profile handling (Keystore-backed)
 - [x] Implement redacted command audit model in history
 - [x] Implement audit export as redacted JSON
+- [ ] Migrate profile serializer format to Proto (optional pre-v1 cleanup)
 
 ## 3) Execution Engine
 - [x] Implement `EmergencyExecutionService` with single active run (`Mutex`)
@@ -86,17 +88,17 @@
 - [ ] Trigger post-restore preflight refresh
 
 ## 7) UI Foundation
-- [ ] Before each UI implementation/PR, consult `~/.codex/skill-sources/compose-skill/jetpack-compose-expert-skill/SKILL.md` and relevant `references/*`
 - [ ] Set up Navigation Compose routes: `Home`, `Profile`, `History`, `RunDetails(runId)`
   - [x] `Home`
   - [x] `Profile`
   - [ ] `History`
   - [ ] `RunDetails(runId)`
-- [ ] Implement app theme with Material 3 + token layer
-- [ ] Add dynamic color support:
+- [ ] Implement app theme token layer (spacing/shape/typography abstractions)
+  - [x] Material 3 theme baseline
+- [x] Add dynamic color support:
   - [x] Android 12+: dynamic scheme
   - [x] Android 11: static Mafza palette fallback
-- [ ] Implement English + Arabic localization and RTL layout support
+- [x] Implement English + Arabic localization baseline and RTL enablement
 - [ ] Implement accessibility baseline (contrast, touch targets, semantics, dynamic type)
 
 ## 8) UI Screens
@@ -108,11 +110,14 @@
   - [ ] health card (last successful Live/Dry Run + stale warning)
 - [ ] Profile:
   - [x] Single settings form
+  - [x] unified action list with top-bar add flow (add/remove/reorder all action types)
+  - [x] grouped/collapsible sections with runtime order preview
   - [x] cancel-window duration setting (`cancel_window_seconds`)
   - [x] action timeout settings (`location_timeout_seconds`, `sms_timeout_seconds`, `intent_timeout_seconds`)
-  - [ ] action/provider picker and provider test actions (multi-instance)
-  - [ ] action policy controls (enabled/required/continue/order, per-instance via `policy_key`)
-  - [ ] advanced shell command editor (add/edit/reorder)
+  - [x] action/provider pickers (message app + uninstall package + delete file/dir + contact picker)
+  - [ ] provider/intent test actions wired in UI
+  - [x] action policy controls (enabled/required/continue/order, per-instance via `policy_key`)
+  - [x] advanced shell command editor (add/edit/reorder)
   - [x] global safety toggles (`Destructive Actions Enabled`, `Triggers Enabled`)
   - [ ] biometric/PIN gate for sensitive edits
   - [ ] backup/restore UI flow (export, restore, preview, confirm)
@@ -125,12 +130,12 @@
 - [ ] Launcher shortcut trigger
 - [ ] Home widget trigger and labels
 - [ ] QS tile trigger and labels
-- [ ] Ensure external triggers always force `LIVE`
+- [x] Ensure external triggers always force `LIVE`
 
 ## 10) Test Coverage
-- [ ] Unit tests for state machine, policies, validators, dry-run guarantees
+- [x] Core unit tests for engine status/policy resolution, validators, and step behavior
 - [ ] Unit tests for backup payload/schema/crypto failure handling
-- [ ] Unit tests for advanced shell policy and execution gating
+- [x] Unit tests for advanced shell policy and execution gating
 - [ ] Instrumentation tests for trigger routing, service lifecycle, UI flows
 - [ ] Device tests for Shizuku authorized/unauthorized behavior
 - [ ] Device tests for provider unavailable fallback and dry-run no-side-effects

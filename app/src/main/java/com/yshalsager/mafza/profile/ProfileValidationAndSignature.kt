@@ -1,0 +1,181 @@
+package com.yshalsager.mafza.profile
+
+import com.yshalsager.mafza.R
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.yshalsager.mafza.core.contracts.ActionId
+import com.yshalsager.mafza.core.contracts.EmergencyProfile
+
+internal fun normalize_string_items(items: List<String>): List<String> {
+    return items
+        .map(String::trim)
+        .filter { it.isNotEmpty() }
+        .distinct()
+}
+
+internal fun normalize_sms_recipients(recipients: List<String>): List<String> {
+    return normalize_string_items(recipients)
+}
+
+internal fun split_multiline_values(input: String): List<String> {
+    return input
+        .split('\n')
+        .map(String::trim)
+        .filter { it.isNotEmpty() }
+}
+
+internal fun build_profile_editor_signature(
+    sms_recipients: List<String>,
+    notify_target_input: String,
+    message_template_input: String,
+    cancel_window_input: String,
+    location_timeout_input: String,
+    sms_timeout_input: String,
+    intent_timeout_input: String,
+    action_policy_rows: List<EditableActionPolicyRow>,
+    message_app_bindings: List<EditableMessageBinding>,
+    intent_actions: List<EditableIntentAction>,
+    uninstall_packages: List<String>,
+    delete_targets: List<EditableDeleteTarget>,
+    advanced_shell_commands: List<EditableShellCommand>,
+    removed_action_policy_map: Map<String, ActionId>,
+    removed_intent_policy_keys: Set<String>,
+    destructive_actions_enabled: Boolean,
+    triggers_enabled: Boolean,
+    self_uninstall_enabled: Boolean
+): String {
+    val removed_action_policy_signature = removed_action_policy_map.entries
+        .sortedBy { it.key }
+        .joinToString("|") { "${it.key}:${it.value.name}" }
+    val removed_intent_policy_signature = removed_intent_policy_keys.sorted().joinToString("|")
+
+    return listOf(
+        sms_recipients.joinToString("\u001f"),
+        notify_target_input,
+        message_template_input,
+        cancel_window_input,
+        location_timeout_input,
+        sms_timeout_input,
+        intent_timeout_input,
+        action_policy_rows.joinToString("\u001e"),
+        message_app_bindings.joinToString("\u001e"),
+        intent_actions.joinToString("\u001e"),
+        uninstall_packages.joinToString("\u001f"),
+        delete_targets.joinToString("\u001e"),
+        advanced_shell_commands.joinToString("\u001e"),
+        removed_action_policy_signature,
+        removed_intent_policy_signature,
+        destructive_actions_enabled.toString(),
+        triggers_enabled.toString(),
+        self_uninstall_enabled.toString()
+    ).joinToString("\u001d")
+}
+
+internal fun build_profile_editor_signature_from_profile(profile: EmergencyProfile): String {
+    val editable_message_bindings = profile.action_bindings
+        .filter { it.action_id == ActionId.NOTIFY_MESSAGE_APP }
+        .mapIndexed { index, binding ->
+            to_editable_message_binding(
+                binding = binding,
+                action_policies = profile.action_policies,
+                default_execution_order = index + 1
+            )
+        }
+    val editable_intent_actions = profile.intent_actions.mapIndexed { index, intent_action ->
+        to_editable_intent_action(
+            intent_action = intent_action,
+            action_policies = profile.action_policies,
+            default_execution_order = index + 1
+        )
+    }
+
+    return build_profile_editor_signature(
+        sms_recipients = profile.sms_recipients,
+        notify_target_input = profile.notify_target,
+        message_template_input = profile.message_template,
+        cancel_window_input = profile.cancel_window_seconds.toString(),
+        location_timeout_input = profile.location_timeout_seconds.toString(),
+        sms_timeout_input = profile.sms_timeout_seconds.toString(),
+        intent_timeout_input = profile.intent_timeout_seconds.toString(),
+        action_policy_rows = extract_editable_action_policy_rows(profile.action_policies),
+        message_app_bindings = editable_message_bindings,
+        intent_actions = editable_intent_actions,
+        uninstall_packages = profile.uninstall_allowlist,
+        delete_targets = profile.delete_allowlist.map(::to_editable_delete_target),
+        advanced_shell_commands = profile.advanced_shell_commands.map(::to_editable_shell_command),
+        removed_action_policy_map = emptyMap(),
+        removed_intent_policy_keys = emptySet(),
+        destructive_actions_enabled = profile.destructive_actions_enabled,
+        triggers_enabled = profile.triggers_enabled,
+        self_uninstall_enabled = profile.self_uninstall_enabled
+    )
+}
+
+internal fun delete_target_input_valid(raw_path: String): Boolean {
+    if (raw_path.isEmpty()) return false
+    if (!raw_path.startsWith("/")) return false
+    val path_file = java.io.File(raw_path)
+    val canonical_path = runCatching { path_file.canonicalPath }.getOrNull() ?: return false
+    if (canonical_path != raw_path) return false
+    if (canonical_path == "/") return false
+    if (java.nio.file.Files.isSymbolicLink(path_file.toPath())) return false
+    return true
+}
+
+@Composable
+internal fun delete_target_error_message(path: String): String? {
+    val trimmed = path.trim()
+    if (trimmed.isEmpty()) return null
+    if (!trimmed.startsWith("/")) return stringResource(R.string.profile_delete_target_error_absolute)
+    val path_file = java.io.File(trimmed)
+    val canonical_path = runCatching { path_file.canonicalPath }.getOrNull()
+        ?: return stringResource(R.string.profile_delete_target_error_canonical)
+    if (canonical_path != trimmed) return stringResource(R.string.profile_delete_target_error_canonical)
+    if (canonical_path == "/") return stringResource(R.string.profile_delete_target_error_root)
+    if (java.nio.file.Files.isSymbolicLink(path_file.toPath())) {
+        return stringResource(R.string.profile_delete_target_error_symlink)
+    }
+    return null
+}
+
+@Composable
+internal fun int_range_error(
+    value: String,
+    min_value: Int,
+    max_value: Int
+): String? {
+    val trimmed = value.trim()
+    if (trimmed.isEmpty()) return stringResource(R.string.profile_validation_number_required)
+    val parsed = trimmed.toIntOrNull() ?: return stringResource(R.string.profile_validation_number_required)
+    return if (parsed in min_value..max_value) {
+        null
+    } else {
+        stringResource(R.string.profile_validation_range, min_value, max_value)
+    }
+}
+
+internal fun is_int_in_range(
+    value: String,
+    min_value: Int,
+    max_value: Int
+): Boolean {
+    val parsed = value.trim().toIntOrNull() ?: return false
+    return parsed in min_value..max_value
+}
+
+internal fun parse_order_or_fallback(
+    value: String,
+    fallback: Int
+): Int {
+    return value.trim().toIntOrNull() ?: fallback
+}
+
+internal fun parse_int_or_fallback(
+    value: String,
+    fallback: Int,
+    min_value: Int,
+    max_value: Int
+): Int {
+    val parsed = value.trim().toIntOrNull() ?: return fallback
+    return parsed.coerceIn(min_value, max_value)
+}
