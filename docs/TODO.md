@@ -115,7 +115,7 @@
   - [x] cancel-window duration setting (`cancel_window_seconds`)
   - [x] action timeout settings (`location_timeout_seconds`, `sms_timeout_seconds`, `intent_timeout_seconds`)
   - [x] action/provider pickers (message app + uninstall package + delete file/dir + contact picker)
-  - [ ] provider/intent test actions wired in UI
+  - [x] provider/intent test actions wired in UI
   - [x] action policy controls (enabled/required/continue/order, per-instance via `policy_key`)
   - [x] advanced shell command editor (add/edit/reorder)
   - [x] global safety toggles (`Destructive Actions Enabled`, `Triggers Enabled`)
@@ -136,9 +136,13 @@
 - [x] Core unit tests for engine status/policy resolution, validators, and step behavior
 - [ ] Unit tests for backup payload/schema/crypto failure handling
 - [x] Unit tests for advanced shell policy and execution gating
+- [x] Device tests for core action-step execution on AVD:
+  - [x] intent launch step live-path
+  - [x] message-provider step with capability-gated share target
+  - [x] SMS step permission-gate behavior
 - [ ] Instrumentation tests for trigger routing, service lifecycle, UI flows
 - [ ] Device tests for Shizuku authorized/unauthorized behavior
-- [ ] Device tests for provider unavailable fallback and dry-run no-side-effects
+- [x] Device tests for provider unavailable fallback and dry-run no-side-effects
 - [ ] Screenshot regression tests for key UI states
 - [ ] Verify debug/release side-by-side install
 

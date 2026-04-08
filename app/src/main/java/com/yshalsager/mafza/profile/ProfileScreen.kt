@@ -860,6 +860,8 @@ internal fun ProfileScreen(
     )
 
     ProfileActionEditorSheet(
+        app_context = app_context,
+        action_provider_registry = action_provider_registry,
         editing_action_row = editing_action_row,
         sms_recipients = sms_recipients,
         sms_contact_picker_error_res_id = sms_contact_picker_error_res_id,

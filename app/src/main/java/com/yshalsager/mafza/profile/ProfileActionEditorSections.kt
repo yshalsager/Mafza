@@ -83,6 +83,9 @@ internal fun MessageBindingEditorSection(
     message_app_bindings: List<EditableMessageBinding>,
     on_update_message_app_bindings: (List<EditableMessageBinding>) -> Unit,
     on_open_message_binding_picker: (Int) -> Unit,
+    test_status: String?,
+    on_test_binding: () -> Unit,
+    on_clear_test_status: () -> Unit,
     show_advanced_execution_rule: Boolean,
     on_toggle_advanced: () -> Unit,
     on_mark_profile_dirty: () -> Unit
@@ -97,6 +100,7 @@ internal fun MessageBindingEditorSection(
                     current_binding.copy(package_name = value)
                 }
             )
+            on_clear_test_status()
             on_mark_profile_dirty()
         },
         label = { Text(text = stringResource(R.string.profile_message_binding_package_label)) },
@@ -111,6 +115,7 @@ internal fun MessageBindingEditorSection(
                     current_binding.copy(activity_name = value)
                 }
             )
+            on_clear_test_status()
             on_mark_profile_dirty()
         },
         label = { Text(text = stringResource(R.string.profile_message_binding_activity_label)) },
@@ -122,6 +127,20 @@ internal fun MessageBindingEditorSection(
         modifier = Modifier.fillMaxWidth()
     ) {
         Text(text = stringResource(R.string.profile_message_binding_picker_title))
+    }
+    TextButton(
+        onClick = on_test_binding,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(text = stringResource(R.string.profile_message_binding_test_action))
+    }
+    if (test_status != null) {
+        val status_res_id = message_binding_test_status_res(test_status)
+        Text(
+            text = stringResource(R.string.profile_message_binding_test_result_prefix) + stringResource(status_res_id),
+            style = MaterialTheme.typography.bodySmall,
+            color = if (test_status == "ready") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+        )
     }
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -141,6 +160,7 @@ internal fun MessageBindingEditorSection(
                         current_binding.copy(enabled = enabled)
                     }
                 )
+                on_clear_test_status()
                 on_mark_profile_dirty()
             }
         )
@@ -199,6 +219,9 @@ internal fun IntentActionEditorSection(
     row: IntentActionRow,
     intent_actions: List<EditableIntentAction>,
     on_update_intent_actions: (List<EditableIntentAction>) -> Unit,
+    test_status: String?,
+    on_test_intent: () -> Unit,
+    on_clear_test_status: () -> Unit,
     show_advanced_execution_rule: Boolean,
     on_toggle_advanced: () -> Unit,
     on_mark_profile_dirty: () -> Unit
@@ -213,6 +236,7 @@ internal fun IntentActionEditorSection(
                     current_intent.copy(label = value)
                 }
             )
+            on_clear_test_status()
             on_mark_profile_dirty()
         },
         label = { Text(text = stringResource(R.string.profile_intent_action_label_label)) },
@@ -227,6 +251,7 @@ internal fun IntentActionEditorSection(
                     current_intent.copy(intent_action = value)
                 }
             )
+            on_clear_test_status()
             on_mark_profile_dirty()
         },
         label = { Text(text = stringResource(R.string.profile_intent_action_action_label)) },
@@ -241,12 +266,27 @@ internal fun IntentActionEditorSection(
                     current_intent.copy(data_uri = value)
                 }
             )
+            on_clear_test_status()
             on_mark_profile_dirty()
         },
         label = { Text(text = stringResource(R.string.profile_intent_action_data_uri_label)) },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true
     )
+    TextButton(
+        onClick = on_test_intent,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(text = stringResource(R.string.profile_intent_action_test_action))
+    }
+    if (test_status != null) {
+        val status_res_id = intent_test_status_res(test_status)
+        Text(
+            text = stringResource(R.string.profile_intent_action_test_result_prefix) + stringResource(status_res_id),
+            style = MaterialTheme.typography.bodySmall,
+            color = if (test_status == "resolvable") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+        )
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,

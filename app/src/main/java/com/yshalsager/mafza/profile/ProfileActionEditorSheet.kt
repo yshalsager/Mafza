@@ -1,5 +1,6 @@
 package com.yshalsager.mafza.profile
 
+import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,16 +18,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.yshalsager.mafza.R
+import com.yshalsager.mafza.core.contracts.ActionBinding
 import com.yshalsager.mafza.core.contracts.ActionId
+import com.yshalsager.mafza.emergency.providers.ActionProviderRegistry
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ProfileActionEditorSheet(
+    app_context: Context,
+    action_provider_registry: ActionProviderRegistry,
     editing_action_row: ProfileActionRow?,
     sms_recipients: List<String>,
     sms_contact_picker_error_res_id: Int?,
@@ -58,7 +65,13 @@ internal fun ProfileActionEditorSheet(
 ) {
     if (editing_action_row == null) return
 
+    val app_scope = rememberCoroutineScope()
+    val editing_message_binding = (editing_action_row as? MessageBindingActionRow)?.let { row ->
+        message_app_bindings.getOrNull(row.item_index)
+    }
     var show_advanced_execution_rule by remember(editing_action_row.row_id) { mutableStateOf(false) }
+    var message_binding_test_status by remember(editing_action_row.row_id, editing_message_binding) { mutableStateOf<String?>(null) }
+    var intent_action_test_status by remember(editing_action_row.row_id) { mutableStateOf<String?>(null) }
 
     ModalBottomSheet(onDismissRequest = on_dismiss) {
         Column(
@@ -93,6 +106,49 @@ internal fun ProfileActionEditorSheet(
                     message_app_bindings = message_app_bindings,
                     on_update_message_app_bindings = on_update_message_app_bindings,
                     on_open_message_binding_picker = on_open_message_binding_picker,
+                    test_status = message_binding_test_status,
+                    on_test_binding = {
+                        val binding = message_app_bindings.getOrNull(editing_action_row.item_index)
+                        if (binding == null) {
+                            message_binding_test_status = "preflight_failed"
+                            return@MessageBindingEditorSection
+                        }
+
+                        val package_name = binding.package_name.trim()
+                        if (package_name.isEmpty()) {
+                            message_binding_test_status = "missing_package"
+                            return@MessageBindingEditorSection
+                        }
+
+                        app_scope.launch {
+                            val provider = action_provider_registry.provider_for(ActionId.NOTIFY_MESSAGE_APP)
+                            if (provider == null) {
+                                message_binding_test_status = "no_provider"
+                                return@launch
+                            }
+
+                            val preflight_result = runCatching {
+                                provider.preflight(
+                                    ActionBinding(
+                                        action_id = ActionId.NOTIFY_MESSAGE_APP,
+                                        binding_id = binding.binding_id,
+                                        package_name = package_name,
+                                        activity_name = binding.activity_name.trim().ifEmpty { null },
+                                        enabled = true
+                                    )
+                                )
+                            }.getOrNull()
+
+                            message_binding_test_status = if (preflight_result == null) {
+                                "preflight_failed"
+                            } else if (preflight_result.ready) {
+                                "ready"
+                            } else {
+                                preflight_result.blocking_reason ?: "preflight_failed"
+                            }
+                        }
+                    },
+                    on_clear_test_status = { message_binding_test_status = null },
                     show_advanced_execution_rule = show_advanced_execution_rule,
                     on_toggle_advanced = { show_advanced_execution_rule = !show_advanced_execution_rule },
                     on_mark_profile_dirty = on_mark_profile_dirty
@@ -101,6 +157,16 @@ internal fun ProfileActionEditorSheet(
                     row = editing_action_row,
                     intent_actions = intent_actions,
                     on_update_intent_actions = on_update_intent_actions,
+                    test_status = intent_action_test_status,
+                    on_test_intent = {
+                        val intent_action = intent_actions.getOrNull(editing_action_row.item_index)
+                        if (intent_action == null) {
+                            intent_action_test_status = "unknown"
+                        } else {
+                            intent_action_test_status = test_intent_action(app_context, intent_action)
+                        }
+                    },
+                    on_clear_test_status = { intent_action_test_status = null },
                     show_advanced_execution_rule = show_advanced_execution_rule,
                     on_toggle_advanced = { show_advanced_execution_rule = !show_advanced_execution_rule },
                     on_mark_profile_dirty = on_mark_profile_dirty
