@@ -32,13 +32,19 @@ jobs:
       - name: Run lint, unit tests, and assemble
         run: ./gradlew :app:lintDebug :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease
 
+      - name: Prepare CI APK names
+        run: |
+          mkdir -p app/build/outputs/ci-apk
+          cp app/build/outputs/renamed-apk/debug/mafza-*-debug.apk app/build/outputs/ci-apk/mafza-debug.apk
+          cp app/build/outputs/renamed-apk/release/mafza-*-release.apk app/build/outputs/ci-apk/mafza-release.apk
+
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
         with:
           name: mafza-apk-artifacts
           path: |
-            app/build/outputs/renamed-apk/debug/*.apk
-            app/build/outputs/renamed-apk/release/*.apk
+            app/build/outputs/ci-apk/mafza-debug.apk
+            app/build/outputs/ci-apk/mafza-release.apk
           if-no-files-found: error
 
   instrumentation:

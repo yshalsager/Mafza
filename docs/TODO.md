@@ -159,4 +159,5 @@
   - [x] add secret scanning workflow (`.github/workflows/security.yml`) via gitleaks
   - [x] add dependency locking strategy for Gradle artifacts (`gradle.lockfile`)
 - [ ] Enforce must-pass release checklist from `PLAN.md`
-- [ ] Produce signed internal release APK and debug APK artifacts
+- [x] Produce signed internal release APK and debug APK artifacts
+  - [x] CI uploads deterministic names: `mafza-debug.apk`, `mafza-release.apk`
