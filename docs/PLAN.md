@@ -2,7 +2,7 @@
 
 ### Branding
 - Product name: `Mafza`
-- Meaning: Al-Mafza‘ (المفزع), the one you turn to when hardship strikes
+- Meaning: Al-Mafza‘ (مفزع), the one you turn to when hardship strikes
 - English branding: use `Mafza` (clean, app-friendly)
 
 ### Summary
