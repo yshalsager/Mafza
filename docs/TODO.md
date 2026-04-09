@@ -143,7 +143,7 @@
   - [x] SMS step permission-gate behavior
 - [ ] Instrumentation tests for trigger routing, service lifecycle, UI flows
   - [x] trigger routing and external-trigger mode/toggle behavior
-  - [ ] foreground service lifecycle
+  - [x] foreground service lifecycle
   - [x] key UI flows (profile top-bar add -> action creation -> dirty-state)
 - [ ] Device tests for Shizuku authorized/unauthorized behavior
 - [x] Device tests for provider unavailable fallback and dry-run no-side-effects

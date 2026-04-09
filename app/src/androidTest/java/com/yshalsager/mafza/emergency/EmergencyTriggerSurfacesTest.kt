@@ -1,5 +1,6 @@
 package com.yshalsager.mafza.emergency
 
+import android.app.ActivityManager
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -8,6 +9,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.yshalsager.mafza.core.contracts.EmergencyProfile
 import com.yshalsager.mafza.core.contracts.ExecutionMode
+import com.yshalsager.mafza.core.contracts.RunStatus
 import com.yshalsager.mafza.core.contracts.TriggerSource
 import com.yshalsager.mafza.core.data.history.MafzaHistoryDatabase
 import com.yshalsager.mafza.core.data.history.RunHistoryDao
@@ -31,6 +33,7 @@ class EmergencyTriggerSurfacesTest {
     private lateinit var history_database: MafzaHistoryDatabase
     private lateinit var history_dao: RunHistoryDao
     private lateinit var package_manager: PackageManager
+    private lateinit var activity_manager: ActivityManager
     private lateinit var app_package_name: String
     private lateinit var original_profile: EmergencyProfile
 
@@ -44,6 +47,7 @@ class EmergencyTriggerSurfacesTest {
         history_database = MafzaHistoryDatabase.create(app_context)
         history_dao = history_database.run_history_dao()
         package_manager = app_context.packageManager
+        activity_manager = app_context.getSystemService(ActivityManager::class.java)
         app_package_name = app_context.packageName
         original_profile = profile_store.read_profile()
     }
@@ -127,6 +131,33 @@ class EmergencyTriggerSurfacesTest {
         assertEquals(ExecutionMode.LIVE, latest_run_after?.mode)
     }
 
+    @Test
+    fun service_runs_foreground_lifecycle_and_stops_after_completion() = runBlocking {
+        profile_store.write_profile(
+            test_profile(triggers_enabled = true).copy(
+                cancel_window_seconds = 5,
+                location_timeout_seconds = 1
+            )
+        )
+        val app_context = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+        val latest_run_before = latest_run()?.run_id
+
+        val service_intent = Intent(app_context, EmergencyExecutionService::class.java).apply {
+            action = EmergencyServiceContract.ACTION_START_RUN
+            putExtra(EmergencyServiceContract.EXTRA_TRIGGER_SOURCE, TriggerSource.MANUAL_IN_APP.name)
+            putExtra(EmergencyServiceContract.EXTRA_EXECUTION_MODE, ExecutionMode.LIVE.name)
+        }
+        app_context.startForegroundService(service_intent)
+
+        assertTrue(wait_for_service_running_state(expected_running = true, timeout_millis = 5_000L))
+
+        val latest_run_after = wait_for_new_run(previous_run_id = latest_run_before, timeout_millis = 20_000L)
+        assertNotNull(latest_run_after)
+        assertTrue(latest_run_after?.status != RunStatus.RUNNING)
+
+        assertTrue(wait_for_service_running_state(expected_running = false, timeout_millis = 10_000L))
+    }
+
     private suspend fun latest_run(): RunHistoryEntity? {
         return history_dao.latest_runs(limit = 1).firstOrNull()
     }
@@ -139,6 +170,26 @@ class EmergencyTriggerSurfacesTest {
             delay(250L)
         }
         return null
+    }
+
+    private suspend fun wait_for_service_running_state(
+        expected_running: Boolean,
+        timeout_millis: Long
+    ): Boolean {
+        val started_at = System.currentTimeMillis()
+        while (System.currentTimeMillis() - started_at < timeout_millis) {
+            if (is_emergency_service_running() == expected_running) return true
+            delay(200L)
+        }
+        return false
+    }
+
+    private fun is_emergency_service_running(): Boolean {
+        val running_services = activity_manager.getRunningServices(Int.MAX_VALUE)
+        return running_services.any { service_info ->
+            service_info.service.packageName == app_package_name &&
+                service_info.service.className == EmergencyExecutionService::class.java.name
+        }
     }
 
     private fun test_profile(triggers_enabled: Boolean): EmergencyProfile {
