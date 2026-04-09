@@ -70,22 +70,22 @@
 - [x] Implement Dry Run partial preflight policy
 - [x] Make SMS recipient requirement policy-driven (`required SEND_SMS` only)
 - [x] Remove duplicate-binding hard block to allow same-type action instances
-- [ ] Implement warning states
+- [x] Implement warning states
   - [x] provider capability warnings
-  - [ ] backup passphrase not tested
+  - [x] backup passphrase not tested
 
 ## 6) Backup / Restore
-- [ ] Implement encrypted backup export to document URI
-- [ ] Implement crypto constants:
-  - [ ] PBKDF2-HMAC-SHA256 iterations `210000`
-  - [ ] salt `16 bytes`
-  - [ ] nonce `12 bytes`
-  - [ ] tag `128 bits`
-  - [ ] extension `.mafza.bak`
-- [ ] Include profile customization state in backup (`action_bindings`, `action_policies`, `advanced_shell_commands`, toggles)
-- [ ] Implement restore semantics as replace (not merge), atomically
-- [ ] Implement schema compatibility handling
-- [ ] Trigger post-restore preflight refresh
+- [x] Implement encrypted backup export to document URI
+- [x] Implement crypto constants:
+  - [x] PBKDF2-HMAC-SHA256 iterations `210000`
+  - [x] salt `16 bytes`
+  - [x] nonce `12 bytes`
+  - [x] tag `128 bits`
+  - [x] extension `.mafza.bak`
+- [x] Include profile customization state in backup (`action_bindings`, `action_policies`, `advanced_shell_commands`, toggles)
+- [x] Implement restore semantics as replace (not merge), atomically
+- [x] Implement schema compatibility handling
+- [x] Trigger post-restore preflight refresh
 
 ## 7) UI Foundation
 - [x] Set up Navigation Compose routes: `Home`, `Profile`, `History`, `RunDetails(runId)`
@@ -93,7 +93,7 @@
   - [x] `Profile`
   - [x] `History`
   - [x] `RunDetails(runId)`
-- [ ] Implement app theme token layer (spacing/shape/typography abstractions)
+- [x] Implement app theme token layer (spacing/shape/typography abstractions)
   - [x] Material 3 theme baseline
 - [x] Add dynamic color support:
   - [x] Android 12+: dynamic scheme
@@ -120,7 +120,7 @@
   - [x] advanced shell command editor (add/edit/reorder)
   - [x] global safety toggles (`Destructive Actions Enabled`, `Triggers Enabled`)
   - [x] biometric/PIN gate for sensitive edits
-  - [ ] backup/restore UI flow (export, restore, preview, confirm)
+  - [x] backup/restore UI flow (export, restore, preview, confirm)
 - [x] History:
   - [x] compact rows + expandable step details
   - [x] mode/status badges
@@ -135,7 +135,7 @@
 
 ## 10) Test Coverage
 - [x] Core unit tests for engine status/policy resolution, validators, and step behavior
-- [ ] Unit tests for backup payload/schema/crypto failure handling
+- [x] Unit tests for backup payload/schema/crypto failure handling
 - [x] Unit tests for advanced shell policy and execution gating
 - [x] Device tests for core action-step execution on AVD:
   - [x] intent launch step live-path

@@ -321,6 +321,59 @@ internal fun ProfileSaveBar(
 }
 
 @Composable
+internal fun ProfileBackupSectionCard(
+    backup_in_progress: Boolean,
+    backup_status_message: String?,
+    backup_error_message: String?,
+    on_export_backup: () -> Unit,
+    on_restore_backup: () -> Unit
+) {
+    CollapsibleSectionCard(
+        title = stringResource(R.string.profile_backup_title),
+        summary = stringResource(R.string.profile_backup_summary),
+        initially_expanded = true
+    ) {
+        Text(
+            text = stringResource(R.string.profile_backup_description),
+            style = MaterialTheme.typography.bodySmall
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                onClick = on_export_backup,
+                modifier = Modifier.weight(1f),
+                enabled = !backup_in_progress
+            ) {
+                Text(text = stringResource(R.string.profile_backup_export_action))
+            }
+            Button(
+                onClick = on_restore_backup,
+                modifier = Modifier.weight(1f),
+                enabled = !backup_in_progress
+            ) {
+                Text(text = stringResource(R.string.profile_backup_restore_action))
+            }
+        }
+        if (backup_status_message != null) {
+            Text(
+                text = backup_status_message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        if (backup_error_message != null) {
+            Text(
+                text = backup_error_message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+    }
+}
+
+@Composable
 internal fun TimeoutField(
     label: String,
     value: String,

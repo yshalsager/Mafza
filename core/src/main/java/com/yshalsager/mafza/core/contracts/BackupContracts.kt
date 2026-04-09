@@ -23,8 +23,16 @@ data class BackupPayload(
     val history: List<RunHistoryExportItem> = emptyList()
 )
 
+data class BackupPreview(
+    val exported_at_epoch_ms: Long,
+    val app_version: String,
+    val include_history: Boolean,
+    val history_count: Int
+)
+
 interface BackupService {
-    fun exportEncryptedBackup(passphrase: CharArray, includeHistory: Boolean): Uri
+    fun exportEncryptedBackup(output_uri: Uri, passphrase: CharArray, includeHistory: Boolean): Uri
+    fun readBackupPreview(uri: Uri, passphrase: CharArray): BackupPreview
     fun restoreEncryptedBackup(uri: Uri, passphrase: CharArray): RestoreResult
 }
 

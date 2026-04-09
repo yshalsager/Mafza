@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.yshalsager.mafza.R
+import com.yshalsager.mafza.ui.theme.MafzaTokens
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -71,14 +72,20 @@ internal fun ProfileContentList(
     on_triggers_toggle: (Boolean) -> Unit,
     self_uninstall_enabled: Boolean,
     on_self_uninstall_toggle: (Boolean) -> Unit,
+    backup_in_progress: Boolean,
+    backup_status_message: String?,
+    backup_error_message: String?,
+    on_export_backup: () -> Unit,
+    on_restore_backup: () -> Unit,
     validation_issues: List<ProfileValidationIssue>,
     on_focus_validation_issue: (ProfileValidationIssueKey) -> Unit
 ) {
+    val spacing = MafzaTokens.spacing
     LazyColumn(
         state = profile_list_state,
         modifier = modifier,
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.sm + spacing.xs / 2),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm + spacing.xs / 2)
     ) {
         item {
             Text(
@@ -290,6 +297,15 @@ internal fun ProfileContentList(
                     )
                 }
             }
+        }
+        item {
+            ProfileBackupSectionCard(
+                backup_in_progress = backup_in_progress,
+                backup_status_message = backup_status_message,
+                backup_error_message = backup_error_message,
+                on_export_backup = on_export_backup,
+                on_restore_backup = on_restore_backup
+            )
         }
         if (validation_issues.isNotEmpty()) {
             item {

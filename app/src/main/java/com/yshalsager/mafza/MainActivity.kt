@@ -37,10 +37,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.yshalsager.mafza.core.contracts.BackupService
 import com.yshalsager.mafza.core.contracts.EmergencyProfile
 import com.yshalsager.mafza.core.contracts.ExecutionMode
+import com.yshalsager.mafza.core.data.backup.EncryptedBackupService
 import com.yshalsager.mafza.core.data.history.MafzaHistoryDatabase
 import com.yshalsager.mafza.core.data.history.RunHistoryDao
+import com.yshalsager.mafza.core.data.history.RunHistoryStore
 import com.yshalsager.mafza.core.data.profile.AndroidKeystoreProfileCipher
 import com.yshalsager.mafza.core.data.profile.EncryptedProfileStore
 import com.yshalsager.mafza.core.data.profile.ProfileDataStoreFactory
@@ -56,6 +59,7 @@ import com.yshalsager.mafza.profile.cancel_emergency_run
 import com.yshalsager.mafza.profile.set_destructive_actions_enabled
 import com.yshalsager.mafza.profile.start_emergency_run
 import com.yshalsager.mafza.shizuku.ShizukuPermissionManager
+import com.yshalsager.mafza.ui.theme.MafzaTokens
 import com.yshalsager.mafza.ui.theme.MafzaTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -78,6 +82,13 @@ class MainActivity : ComponentActivity() {
     private val shizuku_permission_manager by lazy { ShizukuPermissionManager() }
     private val history_database by lazy { MafzaHistoryDatabase.create(applicationContext) }
     private val history_dao by lazy { history_database.run_history_dao() }
+    private val backup_service: BackupService by lazy {
+        EncryptedBackupService(
+            app_context = applicationContext,
+            profile_store = profile_store,
+            history_store = RunHistoryStore(history_database)
+        )
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -88,7 +99,8 @@ class MainActivity : ComponentActivity() {
                     app_context = applicationContext,
                     profile_store = profile_store,
                     history_dao = history_dao,
-                    shizuku_permission_manager = shizuku_permission_manager
+                    shizuku_permission_manager = shizuku_permission_manager,
+                    backup_service = backup_service
                 )
             }
         }
@@ -107,8 +119,10 @@ private fun MafzaApp(
     app_context: Context,
     profile_store: EncryptedProfileStore,
     history_dao: RunHistoryDao,
-    shizuku_permission_manager: ShizukuPermissionManager
+    shizuku_permission_manager: ShizukuPermissionManager,
+    backup_service: BackupService
 ) {
+    val spacing = MafzaTokens.spacing
     val profile by profile_store.profile_flow.collectAsStateWithLifecycle(initialValue = EmergencyProfile())
     val shizuku_state by shizuku_permission_manager.state.collectAsStateWithLifecycle()
     val app_scope = rememberCoroutineScope()
@@ -251,7 +265,7 @@ private fun MafzaApp(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(inner_padding)
-                .padding(horizontal = 16.dp, vertical = 20.dp)
+                .padding(horizontal = spacing.lg, vertical = spacing.xl)
         ) {
             NavHost(
                 navController = nav_controller,
@@ -319,8 +333,10 @@ private fun MafzaApp(
                         profile_store = profile_store,
                         app_context = app_context,
                         action_provider_registry = action_provider_registry,
+                        backup_service = backup_service,
                         add_action_nonce = profile_add_action_nonce,
-                        on_add_action_nonce_consumed = { profile_add_action_nonce = 0 }
+                        on_add_action_nonce_consumed = { profile_add_action_nonce = 0 },
+                        on_backup_restore_complete = { preflight_refresh_nonce += 1 }
                     )
                 }
                 composable(AppRoute.HISTORY.route) {

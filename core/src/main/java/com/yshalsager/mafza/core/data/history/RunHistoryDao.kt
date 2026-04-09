@@ -32,6 +32,12 @@ interface RunHistoryDao {
     @Query("SELECT * FROM run_history ORDER BY started_at_epoch_ms DESC LIMIT :limit")
     suspend fun latest_runs(limit: Int): List<RunHistoryEntity>
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert_runs(runs: List<RunHistoryEntity>)
+
+    @Query("DELETE FROM run_history")
+    suspend fun delete_all_runs()
+
     @Query("SELECT * FROM run_history ORDER BY started_at_epoch_ms DESC LIMIT :limit")
     fun latest_runs_flow(limit: Int): Flow<List<RunHistoryEntity>>
 

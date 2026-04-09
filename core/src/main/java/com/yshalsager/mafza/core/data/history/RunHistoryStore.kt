@@ -1,6 +1,7 @@
 package com.yshalsager.mafza.core.data.history
 
 import androidx.room.withTransaction
+import com.yshalsager.mafza.core.contracts.RunHistoryExportItem
 import kotlinx.serialization.json.Json
 
 class RunHistoryStore(
@@ -70,5 +71,40 @@ class RunHistoryStore(
         )
 
         return json.encodeToString(RedactedAuditExport.serializer(), export)
+    }
+
+    suspend fun export_runs_for_backup(limit: Int = HISTORY_RETENTION_COUNT): List<RunHistoryExportItem> {
+        return dao.latest_runs(limit).map { run ->
+            RunHistoryExportItem(
+                run_id = run.run_id,
+                started_at_epoch_ms = run.started_at_epoch_ms,
+                completed_at_epoch_ms = run.completed_at_epoch_ms ?: run.started_at_epoch_ms,
+                trigger = run.trigger,
+                mode = run.mode,
+                status = run.status
+            )
+        }
+    }
+
+    suspend fun replace_runs_from_backup(runs: List<RunHistoryExportItem>, keep_latest: Int = HISTORY_RETENTION_COUNT) {
+        database.withTransaction {
+            dao.delete_all_runs()
+            if (runs.isEmpty()) return@withTransaction
+
+            val normalized_runs = runs
+                .sortedByDescending { it.started_at_epoch_ms }
+                .take(keep_latest)
+                .map { run ->
+                    RunHistoryEntity(
+                        run_id = run.run_id,
+                        started_at_epoch_ms = run.started_at_epoch_ms,
+                        completed_at_epoch_ms = run.completed_at_epoch_ms,
+                        trigger = run.trigger,
+                        mode = run.mode,
+                        status = run.status
+                    )
+                }
+            dao.insert_runs(normalized_runs)
+        }
     }
 }

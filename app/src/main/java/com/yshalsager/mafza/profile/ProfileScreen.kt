@@ -3,6 +3,7 @@ package com.yshalsager.mafza.profile
 import android.app.Activity
 import android.app.KeyguardManager
 import android.content.Context
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -18,10 +19,18 @@ import androidx.compose.ui.unit.dp
 import com.yshalsager.mafza.R
 import com.yshalsager.mafza.core.contracts.ActionId
 import com.yshalsager.mafza.core.contracts.ActionPolicyKeys
+import com.yshalsager.mafza.core.contracts.BackupPreview
+import com.yshalsager.mafza.core.contracts.BackupService
 import com.yshalsager.mafza.core.contracts.EmergencyProfile
+import com.yshalsager.mafza.core.data.backup.BACKUP_FILE_EXTENSION
 import com.yshalsager.mafza.core.data.profile.EncryptedProfileStore
 import com.yshalsager.mafza.emergency.providers.ActionProviderRegistry
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -30,8 +39,10 @@ internal fun ProfileScreen(
     profile_store: EncryptedProfileStore,
     app_context: Context,
     action_provider_registry: ActionProviderRegistry,
+    backup_service: BackupService,
     add_action_nonce: Int,
-    on_add_action_nonce_consumed: () -> Unit
+    on_add_action_nonce_consumed: () -> Unit,
+    on_backup_restore_complete: () -> Unit
 ) {
     val app_scope = rememberCoroutineScope()
 
@@ -126,6 +137,23 @@ internal fun ProfileScreen(
     var message_settings_expanded by remember { mutableStateOf(true) }
     var timeouts_settings_expanded by remember { mutableStateOf(false) }
     var safety_settings_expanded by remember { mutableStateOf(false) }
+    var backup_in_progress by remember { mutableStateOf(false) }
+    var backup_status_message by remember { mutableStateOf<String?>(null) }
+    var backup_error_message by remember { mutableStateOf<String?>(null) }
+    var show_export_backup_dialog by remember { mutableStateOf(false) }
+    var show_restore_passphrase_dialog by remember { mutableStateOf(false) }
+    var show_restore_confirm_dialog by remember { mutableStateOf(false) }
+    var pending_export_passphrase by remember { mutableStateOf<CharArray?>(null) }
+    var pending_export_include_history by remember { mutableStateOf(false) }
+    var pending_restore_uri by remember { mutableStateOf<Uri?>(null) }
+    var restore_passphrase by remember { mutableStateOf<CharArray?>(null) }
+    var restore_preview by remember { mutableStateOf<BackupPreview?>(null) }
+    DisposableEffect(Unit) {
+        onDispose {
+            pending_export_passphrase?.fill('\u0000')
+            restore_passphrase?.fill('\u0000')
+        }
+    }
     val group_expansion = remember {
         mutableStateMapOf(
             ProfileActionGroup.COMMUNICATION to true,
@@ -280,6 +308,104 @@ internal fun ProfileScreen(
         delete_target_picker_error_res_id = null
         saved_successfully = false
         save_error_message = null
+    }
+
+    val export_backup_launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { output_uri ->
+        val passphrase = pending_export_passphrase
+        val include_history = pending_export_include_history
+        pending_export_passphrase = null
+        pending_export_include_history = false
+        if (output_uri == null || passphrase == null) {
+            passphrase?.fill('\u0000')
+            return@rememberLauncherForActivityResult
+        }
+        app_scope.launch {
+            backup_in_progress = true
+            backup_status_message = null
+            backup_error_message = null
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    backup_service.exportEncryptedBackup(
+                        output_uri = output_uri,
+                        passphrase = passphrase,
+                        includeHistory = include_history
+                    )
+                }
+            }.onSuccess {
+                backup_status_message = app_context.getString(R.string.profile_backup_export_success)
+                backup_error_message = null
+            }.onFailure { error ->
+                backup_status_message = null
+                backup_error_message = app_context.getString(
+                    R.string.profile_backup_export_failed,
+                    error.message ?: "unknown"
+                )
+            }
+            passphrase.fill('\u0000')
+            backup_in_progress = false
+        }
+    }
+
+    val restore_backup_picker_launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { selected_uri ->
+        if (selected_uri == null) {
+            restore_passphrase?.fill('\u0000')
+            restore_passphrase = null
+            pending_restore_uri = null
+            restore_preview = null
+            show_restore_confirm_dialog = false
+            return@rememberLauncherForActivityResult
+        }
+        pending_restore_uri = selected_uri
+        val passphrase = restore_passphrase
+        if (passphrase == null) {
+            backup_error_message = app_context.getString(R.string.profile_backup_passphrase_required)
+            return@rememberLauncherForActivityResult
+        }
+        app_scope.launch {
+            backup_in_progress = true
+            backup_status_message = null
+            backup_error_message = null
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    backup_service.readBackupPreview(
+                        uri = selected_uri,
+                        passphrase = passphrase
+                    )
+                }
+            }.onSuccess { preview ->
+                restore_preview = preview
+                show_restore_confirm_dialog = true
+            }.onFailure { error ->
+                restore_preview = null
+                show_restore_confirm_dialog = false
+                backup_error_message = app_context.getString(
+                    R.string.profile_backup_restore_failed,
+                    error.message ?: "unknown"
+                )
+            }
+            backup_in_progress = false
+        }
+    }
+
+    val trigger_backup_export: (CharArray, Boolean) -> Unit = { passphrase, include_history ->
+        pending_export_passphrase?.fill('\u0000')
+        pending_export_passphrase = passphrase
+        pending_export_include_history = include_history
+        backup_status_message = null
+        backup_error_message = null
+        val suggested_name = build_backup_file_name()
+        export_backup_launcher.launch(suggested_name)
+    }
+    val trigger_backup_restore: () -> Unit = {
+        backup_status_message = null
+        backup_error_message = null
+        restore_preview = null
+        show_restore_confirm_dialog = false
+        show_restore_passphrase_dialog = true
     }
 
     val cancel_window_error = int_range_error(cancel_window_input, PROFILE_MIN_CANCEL_WINDOW_SECONDS, PROFILE_MAX_CANCEL_WINDOW_SECONDS)
@@ -783,6 +909,18 @@ internal fun ProfileScreen(
         uninstall_package_picker_index = null
         save_error_message = null
         saved_successfully = false
+        backup_status_message = null
+        backup_error_message = null
+        show_export_backup_dialog = false
+        show_restore_passphrase_dialog = false
+        show_restore_confirm_dialog = false
+        pending_export_passphrase?.fill('\u0000')
+        pending_export_passphrase = null
+        pending_export_include_history = false
+        pending_restore_uri = null
+        restore_passphrase?.fill('\u0000')
+        restore_passphrase = null
+        restore_preview = null
         baseline_editor_signature = build_profile_editor_signature_from_profile(profile)
     }
     val persist_profile: (EmergencyProfile) -> Unit = { updated_profile ->
@@ -957,6 +1095,11 @@ internal fun ProfileScreen(
                 }
                 mark_profile_dirty()
             },
+            backup_in_progress = backup_in_progress,
+            backup_status_message = backup_status_message,
+            backup_error_message = backup_error_message,
+            on_export_backup = { show_export_backup_dialog = true },
+            on_restore_backup = trigger_backup_restore,
             validation_issues = validation_issues,
             on_focus_validation_issue = focus_validation_issue
         )
@@ -1079,4 +1222,92 @@ internal fun ProfileScreen(
         },
         on_dismiss = { show_self_uninstall_enable_confirm = false }
     )
+
+    ExportBackupDialog(
+        show = show_export_backup_dialog,
+        on_dismiss = { show_export_backup_dialog = false },
+        on_confirm_export = { passphrase, include_history ->
+            show_export_backup_dialog = false
+            trigger_backup_export(passphrase, include_history)
+        }
+    )
+
+    RestoreBackupPassphraseDialog(
+        show = show_restore_passphrase_dialog,
+        on_dismiss = {
+            show_restore_passphrase_dialog = false
+            restore_passphrase?.fill('\u0000')
+            restore_passphrase = null
+        },
+        on_confirm_passphrase = { passphrase ->
+            show_restore_passphrase_dialog = false
+            restore_passphrase?.fill('\u0000')
+            restore_passphrase = passphrase
+            restore_backup_picker_launcher.launch(arrayOf("*/*"))
+        }
+    )
+
+    RestoreBackupConfirmDialog(
+        show = show_restore_confirm_dialog,
+        preview = restore_preview,
+        in_progress = backup_in_progress,
+        on_dismiss = {
+            if (backup_in_progress) return@RestoreBackupConfirmDialog
+            show_restore_confirm_dialog = false
+            restore_preview = null
+            pending_restore_uri = null
+            restore_passphrase?.fill('\u0000')
+            restore_passphrase = null
+        },
+        on_confirm_restore = {
+            if (backup_in_progress) return@RestoreBackupConfirmDialog
+            val backup_uri = pending_restore_uri
+            val passphrase = restore_passphrase
+            if (backup_uri == null || passphrase == null) {
+                show_restore_confirm_dialog = false
+                restore_preview = null
+                pending_restore_uri = null
+                restore_passphrase?.fill('\u0000')
+                restore_passphrase = null
+                backup_error_message = app_context.getString(R.string.profile_backup_restore_missing_state)
+                return@RestoreBackupConfirmDialog
+            }
+            show_restore_confirm_dialog = false
+            backup_in_progress = true
+            backup_status_message = null
+            backup_error_message = null
+            app_scope.launch {
+                val restore_result = withContext(Dispatchers.IO) {
+                    backup_service.restoreEncryptedBackup(
+                        uri = backup_uri,
+                        passphrase = passphrase
+                    )
+                }
+                if (restore_result.success) {
+                    backup_status_message = app_context.getString(
+                        R.string.profile_backup_restore_success,
+                        restore_result.restored_history_count
+                    )
+                    backup_error_message = null
+                    on_backup_restore_complete()
+                } else {
+                    backup_status_message = null
+                    backup_error_message = app_context.getString(
+                        R.string.profile_backup_restore_failed,
+                        restore_result.error_message ?: "unknown"
+                    )
+                }
+                restore_preview = null
+                pending_restore_uri = null
+                passphrase.fill('\u0000')
+                restore_passphrase = null
+                backup_in_progress = false
+            }
+        }
+    )
+}
+
+private fun build_backup_file_name(now: Instant = Instant.now()): String {
+    val formatter = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss").withZone(ZoneId.systemDefault())
+    return "mafza-${formatter.format(now)}$BACKUP_FILE_EXTENSION"
 }
