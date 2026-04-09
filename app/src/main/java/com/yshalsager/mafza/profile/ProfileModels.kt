@@ -168,6 +168,7 @@ internal data class EditableIntentAction(
 
 internal data class EditableDeleteTarget(
     val path: String,
+    val content_uri: String,
     val recursive: Boolean
 )
 

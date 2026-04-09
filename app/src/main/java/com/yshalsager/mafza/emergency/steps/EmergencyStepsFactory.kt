@@ -54,7 +54,10 @@ object EmergencyStepsFactory {
         }
 
         steps += UninstallAppsStep(command_executor = command_executor)
-        steps += DeletePathsStep(command_executor = command_executor)
+        steps += DeletePathsStep(
+            command_executor = command_executor,
+            content_uri_delete_executor = AndroidContentUriDeleteExecutor(app_context = app_context)
+        )
         steps += AdvancedShellCommandsStep(command_executor = command_executor)
         steps += SelfUninstallStep(
             app_context = app_context,

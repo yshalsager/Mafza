@@ -173,18 +173,25 @@ internal fun ProfileScreen(
         delete_target_picker_index = null
         if (selected_uri == null || target_index == null || target_index !in delete_targets.indices) return@rememberLauncherForActivityResult
 
-        val resolved_path = resolve_picker_uri_to_absolute_path(
+        val persisted = persist_delete_target_uri_permission(
             context = app_context,
-            selected_uri = selected_uri,
-            prefer_tree_id = false
+            selected_uri = selected_uri
         )
-        if (resolved_path.isNullOrBlank()) {
-            delete_target_picker_error_res_id = R.string.profile_delete_target_pick_unresolved
+        if (!persisted) {
+            delete_target_picker_error_res_id = R.string.profile_delete_target_pick_permission_failed
             return@rememberLauncherForActivityResult
         }
 
         delete_targets = delete_targets.mapIndexed { index, target ->
-            if (index == target_index) target.copy(path = resolved_path) else target
+            if (index == target_index) {
+                target.copy(
+                    path = "",
+                    content_uri = selected_uri.toString(),
+                    recursive = false
+                )
+            } else {
+                target
+            }
         }
         delete_target_picker_error_res_id = null
         saved_successfully = false
@@ -198,19 +205,22 @@ internal fun ProfileScreen(
         delete_target_picker_index = null
         if (selected_uri == null || target_index == null || target_index !in delete_targets.indices) return@rememberLauncherForActivityResult
 
-        val resolved_path = resolve_picker_uri_to_absolute_path(
+        val persisted = persist_delete_target_uri_permission(
             context = app_context,
-            selected_uri = selected_uri,
-            prefer_tree_id = true
+            selected_uri = selected_uri
         )
-        if (resolved_path.isNullOrBlank()) {
-            delete_target_picker_error_res_id = R.string.profile_delete_target_pick_unresolved
+        if (!persisted) {
+            delete_target_picker_error_res_id = R.string.profile_delete_target_pick_permission_failed
             return@rememberLauncherForActivityResult
         }
 
         delete_targets = delete_targets.mapIndexed { index, target ->
             if (index == target_index) {
-                target.copy(path = resolved_path, recursive = true)
+                target.copy(
+                    path = "",
+                    content_uri = selected_uri.toString(),
+                    recursive = true
+                )
             } else {
                 target
             }

@@ -13,14 +13,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,6 +46,7 @@ import com.yshalsager.mafza.core.data.profile.ProfileDataStoreFactory
 import com.yshalsager.mafza.emergency.providers.ActionProviderRegistry
 import com.yshalsager.mafza.emergency.providers.IntentMessageAppProvider
 import com.yshalsager.mafza.preflight.PreflightValidator
+import com.yshalsager.mafza.preflight.requires_shizuku_for_live_destructive_actions
 import com.yshalsager.mafza.profile.AppRoute
 import com.yshalsager.mafza.profile.CancelWindowOverlay
 import com.yshalsager.mafza.profile.ProfileScreen
@@ -110,8 +109,7 @@ private fun MafzaApp(
     val shizuku_state by shizuku_permission_manager.state.collectAsStateWithLifecycle()
     val app_scope = rememberCoroutineScope()
     var pending_destructive_enable by remember { mutableStateOf(false) }
-    var show_live_confirmation by remember { mutableStateOf(false) }
-    var cancel_window_remaining_seconds by remember { mutableStateOf(0) }
+    var cancel_window_remaining_seconds by remember { mutableIntStateOf(0) }
     var preflight_refresh_nonce by remember { mutableIntStateOf(0) }
     var profile_add_action_nonce by remember { mutableIntStateOf(0) }
     val runtime_permission_launcher = rememberLauncherForActivityResult(
@@ -146,9 +144,16 @@ private fun MafzaApp(
     LaunchedEffect(
         shizuku_state.is_running,
         shizuku_state.is_permission_granted,
-        pending_destructive_enable
+        pending_destructive_enable,
+        profile
     ) {
         if (!pending_destructive_enable) return@LaunchedEffect
+        val candidate_profile = profile.copy(destructive_actions_enabled = true)
+        if (!requires_shizuku_for_live_destructive_actions(candidate_profile)) {
+            set_destructive_actions_enabled(profile_store, enabled = true)
+            pending_destructive_enable = false
+            return@LaunchedEffect
+        }
         if (!shizuku_state.is_running || !shizuku_state.is_permission_granted) return@LaunchedEffect
 
         set_destructive_actions_enabled(profile_store, enabled = true)
@@ -158,6 +163,17 @@ private fun MafzaApp(
         if (cancel_window_remaining_seconds <= 0) return@LaunchedEffect
         delay(1_000L)
         cancel_window_remaining_seconds -= 1
+    }
+    fun start_live_run() {
+        start_emergency_run(
+            app_context = app_context,
+            mode = ExecutionMode.LIVE
+        )
+        val cancel_window_seconds = profile.cancel_window_seconds.coerceIn(
+            MIN_CANCEL_WINDOW_SECONDS,
+            MAX_CANCEL_WINDOW_SECONDS
+        )
+        cancel_window_remaining_seconds = cancel_window_seconds
     }
 
     Scaffold(
@@ -243,7 +259,7 @@ private fun MafzaApp(
                             pending_destructive_enable = true
                             shizuku_permission_manager.request_permission()
                         },
-                        on_run_live = { show_live_confirmation = true },
+                        on_run_live = ::start_live_run,
                         on_run_dry_run = {
                             start_emergency_run(
                                 app_context = app_context,
@@ -256,6 +272,15 @@ private fun MafzaApp(
                                 app_scope.launch {
                                     set_destructive_actions_enabled(profile_store, enabled = false)
                                 }
+                                return@HomeScreen
+                            }
+                            val candidate_profile = profile.copy(destructive_actions_enabled = true)
+                            val shizuku_required = requires_shizuku_for_live_destructive_actions(candidate_profile)
+                            if (!shizuku_required) {
+                                app_scope.launch {
+                                    set_destructive_actions_enabled(profile_store, enabled = true)
+                                }
+                                pending_destructive_enable = false
                                 return@HomeScreen
                             }
                             if (shizuku_state.is_running && shizuku_state.is_permission_granted) {
@@ -298,40 +323,6 @@ private fun MafzaApp(
                 }
             }
         }
-    }
-
-    if (show_live_confirmation) {
-        AlertDialog(
-            onDismissRequest = { show_live_confirmation = false },
-            title = {
-                Text(text = stringResource(R.string.run_live_confirm_title))
-            },
-            text = {
-                Text(text = stringResource(R.string.run_live_confirm_body))
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        show_live_confirmation = false
-                        start_emergency_run(
-                            app_context = app_context,
-                            mode = ExecutionMode.LIVE
-                        )
-                        cancel_window_remaining_seconds = profile.cancel_window_seconds.coerceIn(
-                            MIN_CANCEL_WINDOW_SECONDS,
-                            MAX_CANCEL_WINDOW_SECONDS
-                        )
-                    }
-                ) {
-                    Text(text = stringResource(R.string.run_live_confirm_action))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { show_live_confirmation = false }) {
-                    Text(text = stringResource(R.string.run_live_cancel_action))
-                }
-            }
-        )
     }
 
     if (cancel_window_remaining_seconds > 0) {

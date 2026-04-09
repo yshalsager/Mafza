@@ -425,3 +425,43 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
 - Action providers are user-selected and may vary by device; app-driven steps must degrade safely when provider is unavailable.
 - Immediate execution is mandatory; only the configured pre-start cancel window is allowed (default 2 seconds).
 - No KMP/Desktop scope in v1.
+
+## Plan Addendum: Cell ID Beside Location (History + Template)
+
+### Summary
+- Add telephony cell metadata capture to the location step.
+- Show detailed radio info beside location in step details.
+- Expose `{cell_id}` in message templates.
+- Enforce `READ_PHONE_STATE` in preflight/runtime permission flow, while still capturing lat/lon if phone-state access is unavailable at execution time.
+
+### Key Changes
+- Location pipeline:
+  - Extend internal location snapshot type with cell metadata fields (at minimum: `cell_id`, radio type, and technology-specific details such as TAC/LAC and PCI when available).
+  - In the location step, read current location as today, then read telephony cell info (prefer registered cell; fallback to first available).
+  - Build success details as key-value text including `lat`, `lon`, and available cell/radio fields.
+  - Keep location successful even when cell info is unavailable or blocked; only cell fields are omitted.
+- Permission/preflight:
+  - Add `READ_PHONE_STATE` permission to manifest.
+  - Add a new live preflight blocking issue for missing phone-state permission.
+  - Include phone-state permission in the runtime permission request set from the preflight card.
+- Template rendering:
+  - Add `{cell_id}` replacement token sourced from the run step state.
+  - Keep token empty if unavailable (no placeholder text).
+  - Update template variable documentation list to include `{cell_id}`.
+
+### Tests
+- Location step unit tests:
+  - Success path includes cell metadata in state/details when telephony data exists.
+  - Success path still works with lat/lon when telephony data is missing/blocked.
+  - Existing dry-run, timeout, and provider fallback behavior remain unchanged.
+- Preflight validator unit tests:
+  - Missing phone-state permission appears in live blocking issues.
+  - Live-ready behavior is restored when phone-state permission is granted.
+- Message/template coverage:
+  - Add or adjust a focused test around token replacement to verify `{cell_id}` is emitted when present and empty when absent.
+
+### Assumptions and Defaults
+- “Beside location” means location step details text and outgoing template support.
+- Detailed radio info is shown in history details only; templates get `{cell_id}` only.
+- No forced failure/skip of the whole location step due to missing phone-state permission; degradation is cell-info-only.
+- Android min SDK remains 30+, and telephony retrieval is implemented as best-effort per device/RAT availability.

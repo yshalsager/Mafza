@@ -79,6 +79,7 @@ internal fun PreflightCard(
         issue == "action_binding_missing_binding_id" || issue == "action_binding_duplicate_binding_id"
     }
     val invalid_policy_keys = preflight_report.live_blocking_issues.contains("action_policy_invalid_or_duplicate_policy_key")
+    val shizuku_required = preflight_report.live_blocking_issues.contains("shizuku_permission_required_for_destructive_actions")
     val needs_profile_setup = missing_recipients || missing_or_duplicate_binding_id || invalid_policy_keys
     val runtime_permissions_to_request = buildList {
         if (missing_location_permission) {
@@ -104,8 +105,8 @@ internal fun PreflightCard(
             Text(
                 text = when {
                     preflight_report.live_ready -> stringResource(R.string.preflight_ready)
-                    !shizuku_state.is_running -> stringResource(R.string.preflight_shizuku_not_running)
-                    !shizuku_state.is_permission_granted -> stringResource(R.string.preflight_shizuku_permission_required)
+                    shizuku_required && !shizuku_state.is_running -> stringResource(R.string.preflight_shizuku_not_running)
+                    shizuku_required && !shizuku_state.is_permission_granted -> stringResource(R.string.preflight_shizuku_permission_required)
                     preflight_report.live_blocking_issues.isNotEmpty() -> preflight_report.live_blocking_issues.joinToString("\n")
                     else -> stringResource(R.string.preflight_unknown)
                 },
@@ -117,7 +118,7 @@ internal fun PreflightCard(
                     style = MaterialTheme.typography.bodySmall
                 )
             }
-            if (shizuku_state.should_show_permission_rationale && !shizuku_state.is_permission_granted) {
+            if (shizuku_required && shizuku_state.should_show_permission_rationale && !shizuku_state.is_permission_granted) {
                 Text(
                     text = stringResource(R.string.preflight_permission_rationale),
                     style = MaterialTheme.typography.bodySmall
@@ -127,7 +128,7 @@ internal fun PreflightCard(
             Button(onClick = on_refresh, modifier = Modifier.fillMaxWidth()) {
                 Text(text = stringResource(R.string.preflight_refresh))
             }
-            if (shizuku_state.is_running && !shizuku_state.is_permission_granted) {
+            if (shizuku_required && shizuku_state.is_running && !shizuku_state.is_permission_granted) {
                 Button(onClick = on_request_permission, modifier = Modifier.fillMaxWidth()) {
                     Text(text = stringResource(R.string.preflight_request_permission))
                 }

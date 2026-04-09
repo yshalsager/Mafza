@@ -134,6 +134,7 @@ internal fun create_empty_message_binding(default_execution_order: Int): Editabl
 internal fun to_editable_delete_target(target: DeleteTarget): EditableDeleteTarget {
     return EditableDeleteTarget(
         path = target.path,
+        content_uri = target.content_uri.orEmpty(),
         recursive = target.recursive
     )
 }
@@ -141,6 +142,7 @@ internal fun to_editable_delete_target(target: DeleteTarget): EditableDeleteTarg
 internal fun create_empty_delete_target(): EditableDeleteTarget {
     return EditableDeleteTarget(
         path = "",
+        content_uri = "",
         recursive = false
     )
 }
@@ -216,10 +218,13 @@ internal fun build_profile_delete_targets(delete_targets: List<EditableDeleteTar
         .map { target ->
             DeleteTarget(
                 path = target.path.trim(),
+                content_uri = target.content_uri.trim().ifEmpty { null },
                 recursive = target.recursive
             )
         }
-        .filter { target -> target.path.isNotEmpty() }
+        .filter { target ->
+            target.path.isNotEmpty() || !target.content_uri.isNullOrEmpty()
+        }
 }
 
 internal fun build_profile_shell_commands(commands: List<EditableShellCommand>): List<ShellCommandSpec> {

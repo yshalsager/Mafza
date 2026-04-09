@@ -134,7 +134,14 @@ internal fun profile_action_row_summary(row: ProfileActionRow): String {
             row.intent_action.intent_action.trim().ifEmpty { stringResource(R.string.profile_action_row_summary_no_intent_set) }
         }
         is UninstallPackageActionRow -> row.package_name.trim().ifEmpty { stringResource(R.string.profile_action_row_summary_no_package_set) }
-        is DeleteTargetActionRow -> row.target.path.trim().ifEmpty { stringResource(R.string.profile_action_row_summary_no_path_set) }
+        is DeleteTargetActionRow -> {
+            val path_summary = row.target.path.trim()
+            if (path_summary.isNotEmpty()) {
+                path_summary
+            } else {
+                row.target.content_uri.trim().ifEmpty { stringResource(R.string.profile_action_row_summary_no_path_set) }
+            }
+        }
         is ShellCommandActionRow -> row.command.label.trim().ifEmpty { stringResource(R.string.profile_action_row_summary_no_label_set) }
         is SelfUninstallActionRow -> stringResource(R.string.profile_action_row_summary_self_uninstall)
     }

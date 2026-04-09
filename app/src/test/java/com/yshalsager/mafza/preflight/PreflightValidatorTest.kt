@@ -24,7 +24,8 @@ class PreflightValidatorTest {
         )
         val profile = EmergencyProfile(
             sms_recipients = listOf("+20123456789"),
-            destructive_actions_enabled = true
+            destructive_actions_enabled = true,
+            uninstall_allowlist = listOf("com.example.target")
         )
 
         val report = validator.validate(
@@ -341,6 +342,55 @@ class PreflightValidatorTest {
         val profile = EmergencyProfile(
             sms_recipients = listOf("+20123456789"),
             delete_allowlist = listOf(DeleteTarget(path = "/", recursive = true))
+        )
+
+        val report = validator.validate(profile, ShizukuPermissionState())
+
+        assertFalse(report.live_ready)
+        assertFalse(report.dry_run_ready)
+        assertTrue(report.live_blocking_issues.contains("invalid_delete_allowlist"))
+        assertTrue(report.dry_run_blocking_issues.contains("invalid_delete_allowlist"))
+    }
+
+    @Test
+    fun `saf delete target does not require shizuku permission`() {
+        val validator = validator()
+        val profile = EmergencyProfile(
+            sms_recipients = listOf("+20123456789"),
+            destructive_actions_enabled = true,
+            delete_allowlist = listOf(
+                DeleteTarget(
+                    path = "",
+                    content_uri = "content://com.android.externalstorage.documents/tree/primary%3ADownload",
+                    recursive = true
+                )
+            )
+        )
+
+        val report = validator.validate(
+            profile = profile,
+            shizuku_permission_state = ShizukuPermissionState(
+                is_running = false,
+                is_permission_granted = false
+            )
+        )
+
+        assertTrue(report.live_ready)
+        assertFalse(report.live_blocking_issues.contains("shizuku_permission_required_for_destructive_actions"))
+    }
+
+    @Test
+    fun `non saf content uri delete target blocks both live and dry run`() {
+        val validator = validator()
+        val profile = EmergencyProfile(
+            sms_recipients = listOf("+20123456789"),
+            delete_allowlist = listOf(
+                DeleteTarget(
+                    path = "",
+                    content_uri = "content://com.example.provider/items/123",
+                    recursive = false
+                )
+            )
         )
 
         val report = validator.validate(profile, ShizukuPermissionState())

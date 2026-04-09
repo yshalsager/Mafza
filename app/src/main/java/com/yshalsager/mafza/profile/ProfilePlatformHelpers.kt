@@ -5,7 +5,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.ContactsContract
-import android.provider.DocumentsContract
 
 internal fun query_launchable_apps(context: Context): List<LaunchableAppOption> {
     val package_manager = context.packageManager
@@ -46,51 +45,15 @@ internal fun query_installed_app_packages(context: Context): List<InstalledPacka
         .sortedBy { it.label.lowercase() }
 }
 
-internal fun resolve_picker_uri_to_absolute_path(
+internal fun persist_delete_target_uri_permission(
     context: Context,
-    selected_uri: Uri,
-    prefer_tree_id: Boolean
-): String? {
-    if (selected_uri.scheme == "file") {
-        return selected_uri.path?.trim()?.ifEmpty { null }
-    }
-    if (!DocumentsContract.isDocumentUri(context, selected_uri)) return null
-
-    val document_id = runCatching {
-        if (prefer_tree_id && DocumentsContract.isTreeUri(selected_uri)) {
-            DocumentsContract.getTreeDocumentId(selected_uri)
-        } else {
-            DocumentsContract.getDocumentId(selected_uri)
-        }
-    }.getOrNull() ?: return null
-
-    return document_id_to_absolute_path(document_id)
-}
-
-internal fun document_id_to_absolute_path(document_id: String): String? {
-    if (document_id.startsWith("raw:")) {
-        return document_id.removePrefix("raw:").trim().ifEmpty { null }
-    }
-
-    if (document_id.startsWith("/")) {
-        return document_id.trim().ifEmpty { null }
-    }
-
-    val id_parts = document_id.split(':', limit = 2)
-    if (id_parts.isEmpty()) return null
-
-    val storage_id = id_parts[0]
-    val relative_path = id_parts.getOrNull(1).orEmpty().trim('/')
-    return when {
-        storage_id.equals("primary", ignoreCase = true) -> {
-            if (relative_path.isEmpty()) "/storage/emulated/0" else "/storage/emulated/0/$relative_path"
-        }
-        storage_id.equals("home", ignoreCase = true) -> {
-            if (relative_path.isEmpty()) "/storage/emulated/0/Documents" else "/storage/emulated/0/Documents/$relative_path"
-        }
-        relative_path.isNotEmpty() -> "/storage/$storage_id/$relative_path"
-        else -> null
-    }
+    selected_uri: Uri
+): Boolean {
+    return runCatching {
+        val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        context.contentResolver.takePersistableUriPermission(selected_uri, flags)
+        true
+    }.getOrDefault(false)
 }
 
 internal fun resolve_contact_phone_number(

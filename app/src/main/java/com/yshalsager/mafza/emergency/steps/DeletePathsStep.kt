@@ -16,6 +16,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 class DeletePathsStep(
     private val command_executor: PrivilegedCommandExecutor,
+    private val content_uri_delete_executor: ContentUriDeleteExecutor = UnavailableContentUriDeleteExecutor,
     private val now_provider: () -> Long = { System.currentTimeMillis() }
 ) : PolicyBoundEmergencyStep {
     override val action_id: ActionId = ActionId.DELETE_PATHS
@@ -37,14 +38,6 @@ class DeletePathsStep(
                 started_at = started_at
             )
         }
-        if (!command_executor.is_available()) {
-            return step_result(
-                status = StepStatus.SKIPPED_UNAVAILABLE,
-                details = "shizuku_unavailable",
-                started_at = started_at
-            )
-        }
-
         val targets = ctx.profile.delete_allowlist
         if (targets.isEmpty()) {
             return step_result(
@@ -121,6 +114,14 @@ class DeletePathsStep(
     }
 
     private fun is_valid_target(target: DeleteTarget): Boolean {
+        val has_path = target.path.trim().isNotEmpty()
+        val has_content_uri = target.content_uri?.trim().isNullOrEmpty().not()
+        if (has_path == has_content_uri) return false
+        if (has_content_uri) return is_valid_content_uri_target(target)
+        return is_valid_path_target(target)
+    }
+
+    private fun is_valid_path_target(target: DeleteTarget): Boolean {
         val raw_path = target.path.trim()
         if (raw_path.isEmpty()) return false
         if (!raw_path.startsWith("/")) return false
@@ -133,7 +134,31 @@ class DeletePathsStep(
         return true
     }
 
+    private fun is_valid_content_uri_target(target: DeleteTarget): Boolean {
+        val raw_content_uri = target.content_uri?.trim().orEmpty()
+        if (raw_content_uri.isEmpty()) return false
+        return raw_content_uri.startsWith("content://", ignoreCase = true)
+    }
+
     private suspend fun execute_delete_target(target: DeleteTarget): PrivilegedCommandResult {
+        val raw_content_uri = target.content_uri?.trim().orEmpty()
+        if (raw_content_uri.isNotEmpty()) {
+            return content_uri_delete_executor.execute_delete(
+                target = target,
+                timeout_seconds = DELETE_TIMEOUT_SECONDS
+            )
+        }
+
+        if (!command_executor.is_available()) {
+            return PrivilegedCommandResult(
+                exit_code = 1,
+                stdout = "",
+                stderr = "shizuku_unavailable",
+                timed_out = false,
+                unavailable = true
+            )
+        }
+
         val target_path = target.path.trim()
         return if (target.recursive) {
             command_executor.execute_argv(

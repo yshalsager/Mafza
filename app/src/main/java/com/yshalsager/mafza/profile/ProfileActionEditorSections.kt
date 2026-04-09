@@ -426,13 +426,36 @@ internal fun DeleteTargetEditorSection(
         onValueChange = { value ->
             on_update_delete_targets(
                 delete_targets.update_item(row.item_index) { current_target ->
-                    current_target.copy(path = value)
+                    current_target.copy(
+                        path = value,
+                        content_uri = if (value.trim().isNotEmpty()) "" else current_target.content_uri
+                    )
                 }
             )
             on_update_delete_target_picker_error(null)
             on_mark_profile_dirty()
         },
         label = { Text(text = stringResource(R.string.profile_delete_target_path_label)) },
+        placeholder = { Text(text = stringResource(R.string.profile_delete_target_path_placeholder)) },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true
+    )
+    OutlinedTextField(
+        value = delete_target.content_uri,
+        onValueChange = { value ->
+            on_update_delete_targets(
+                delete_targets.update_item(row.item_index) { current_target ->
+                    current_target.copy(
+                        content_uri = value,
+                        path = if (value.trim().isNotEmpty()) "" else current_target.path
+                    )
+                }
+            )
+            on_update_delete_target_picker_error(null)
+            on_mark_profile_dirty()
+        },
+        label = { Text(text = stringResource(R.string.profile_delete_target_content_uri_label)) },
+        placeholder = { Text(text = stringResource(R.string.profile_delete_target_content_uri_placeholder)) },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true
     )
@@ -475,9 +498,24 @@ internal fun DeleteTargetEditorSection(
             Text(text = stringResource(R.string.profile_delete_pick_directory_action))
         }
     }
+    Text(
+        text = stringResource(R.string.profile_delete_target_picker_hint),
+        style = MaterialTheme.typography.bodySmall
+    )
     if (delete_target_picker_error_res_id != null) {
         Text(
             text = stringResource(delete_target_picker_error_res_id),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error
+        )
+    }
+    val delete_target_error = delete_target_error_message(
+        path = delete_target.path,
+        content_uri = delete_target.content_uri
+    )
+    if (delete_target_error != null) {
+        Text(
+            text = delete_target_error,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error
         )

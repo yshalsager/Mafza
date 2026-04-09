@@ -111,7 +111,43 @@ internal fun build_profile_editor_signature_from_profile(profile: EmergencyProfi
     )
 }
 
-internal fun delete_target_input_valid(raw_path: String): Boolean {
+internal fun delete_target_input_valid(target: EditableDeleteTarget): Boolean {
+    val raw_path = target.path.trim()
+    val raw_content_uri = target.content_uri.trim()
+    val has_path = raw_path.isNotEmpty()
+    val has_content_uri = raw_content_uri.isNotEmpty()
+    if (has_path == has_content_uri) return false
+    if (has_content_uri) return delete_target_content_uri_valid(raw_content_uri)
+    return delete_target_path_valid(raw_path)
+}
+
+@Composable
+internal fun delete_target_error_message(path: String, content_uri: String): String? {
+    val trimmed_path = path.trim()
+    val trimmed_content_uri = content_uri.trim()
+    val has_path = trimmed_path.isNotEmpty()
+    val has_content_uri = trimmed_content_uri.isNotEmpty()
+    if (!has_path && !has_content_uri) return null
+    if (has_path && has_content_uri) return stringResource(R.string.profile_delete_target_error_source_conflict)
+    if (has_content_uri) {
+        return if (delete_target_content_uri_valid(trimmed_content_uri)) {
+            null
+        } else {
+            stringResource(R.string.profile_delete_target_error_content_uri)
+        }
+    }
+    val path_file = java.io.File(trimmed_path)
+    val canonical_path = runCatching { path_file.canonicalPath }.getOrNull()
+        ?: return stringResource(R.string.profile_delete_target_error_canonical)
+    if (canonical_path != trimmed_path) return stringResource(R.string.profile_delete_target_error_canonical)
+    if (canonical_path == "/") return stringResource(R.string.profile_delete_target_error_root)
+    if (java.nio.file.Files.isSymbolicLink(path_file.toPath())) {
+        return stringResource(R.string.profile_delete_target_error_symlink)
+    }
+    return null
+}
+
+private fun delete_target_path_valid(raw_path: String): Boolean {
     if (raw_path.isEmpty()) return false
     if (!raw_path.startsWith("/")) return false
     val path_file = java.io.File(raw_path)
@@ -122,20 +158,16 @@ internal fun delete_target_input_valid(raw_path: String): Boolean {
     return true
 }
 
-@Composable
-internal fun delete_target_error_message(path: String): String? {
-    val trimmed = path.trim()
-    if (trimmed.isEmpty()) return null
-    if (!trimmed.startsWith("/")) return stringResource(R.string.profile_delete_target_error_absolute)
-    val path_file = java.io.File(trimmed)
-    val canonical_path = runCatching { path_file.canonicalPath }.getOrNull()
-        ?: return stringResource(R.string.profile_delete_target_error_canonical)
-    if (canonical_path != trimmed) return stringResource(R.string.profile_delete_target_error_canonical)
-    if (canonical_path == "/") return stringResource(R.string.profile_delete_target_error_root)
-    if (java.nio.file.Files.isSymbolicLink(path_file.toPath())) {
-        return stringResource(R.string.profile_delete_target_error_symlink)
-    }
-    return null
+private fun delete_target_content_uri_valid(raw_content_uri: String): Boolean {
+    if (raw_content_uri.isEmpty()) return false
+    if (!raw_content_uri.startsWith("content://", ignoreCase = true)) return false
+
+    val without_scheme = raw_content_uri.substring(10)
+    val authority = without_scheme.substringBefore('/').trim()
+    if (authority.isEmpty()) return false
+
+    val normalized_content_uri = raw_content_uri.lowercase()
+    return normalized_content_uri.contains("/tree/") || normalized_content_uri.contains("/document/")
 }
 
 @Composable

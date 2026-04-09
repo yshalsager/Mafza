@@ -16,6 +16,7 @@ enum class ActionId {
 @Serializable
 data class DeleteTarget(
     val path: String,
+    val content_uri: String? = null,
     val recursive: Boolean
 )
 
