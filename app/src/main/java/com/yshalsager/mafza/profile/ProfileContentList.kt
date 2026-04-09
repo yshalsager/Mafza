@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -204,6 +206,23 @@ internal fun ProfileContentList(
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 3
                     )
+                    Text(
+                        text = stringResource(R.string.profile_message_template_variables_hint),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(MESSAGE_TEMPLATE_VARIABLES) { token ->
+                            AssistChip(
+                                onClick = {
+                                    val suffix = if (message_template_input.isBlank() || message_template_input.endsWith(" ")) "" else " "
+                                    on_message_template_change(message_template_input + suffix + token)
+                                },
+                                label = { Text(token) }
+                            )
+                        }
+                    }
                 }
 
                 CollapsibleInlineSection(
@@ -279,3 +298,20 @@ internal fun ProfileContentList(
         }
     }
 }
+
+private val MESSAGE_TEMPLATE_VARIABLES = listOf(
+    "{timestamp}",
+    "{lat}",
+    "{lon}",
+    "{maps_url}",
+    "{trigger}",
+    "{altitude}",
+    "{accuracy}",
+    "{cell_id}",
+    "{cell_radio}",
+    "{cell_area}",
+    "{cell_pci}",
+    "{battery}",
+    "{locale}",
+    "{app_version}"
+)

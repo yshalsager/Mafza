@@ -11,6 +11,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LocationStepTest {
@@ -131,6 +132,73 @@ class LocationStepTest {
         assertEquals(StepStatus.SUCCESS, result.status)
         assertEquals(listOf("gps", "network"), attempted_providers)
         assertNotNull(run_step_state.get_location())
+    }
+
+    @Test
+    fun `includes cell snapshot and details when phone state permission is granted`() = runTest {
+        val run_step_state = RunStepState()
+        val location_step = LocationStep(
+            app_context = null,
+            run_step_state = run_step_state,
+            has_location_permission_checker = { true },
+            has_phone_state_permission_checker = { true },
+            provider_resolver = { "gps" },
+            location_reader = {
+                LocationSnapshot(
+                    latitude = 24.7136,
+                    longitude = 46.6753,
+                    altitude = null,
+                    accuracy_meters = 6.0f
+                )
+            },
+            cell_snapshot_reader = {
+                CellSnapshot(
+                    cell_id = "12345",
+                    radio_type = "lte",
+                    area_code = "404",
+                    pci = 321
+                )
+            }
+        )
+
+        val result = location_step.execute(test_step_context())
+        assertEquals(StepStatus.SUCCESS, result.status)
+        assertTrue(result.details?.contains("cell_id=12345") == true)
+        assertTrue(result.details?.contains("cell_radio=lte") == true)
+        assertEquals("12345", run_step_state.get_location()?.cell_snapshot?.cell_id)
+    }
+
+    @Test
+    fun `keeps location success when phone state permission is missing`() = runTest {
+        val run_step_state = RunStepState()
+        val location_step = LocationStep(
+            app_context = null,
+            run_step_state = run_step_state,
+            has_location_permission_checker = { true },
+            has_phone_state_permission_checker = { false },
+            provider_resolver = { "network" },
+            location_reader = {
+                LocationSnapshot(
+                    latitude = 40.7128,
+                    longitude = -74.0060,
+                    altitude = null,
+                    accuracy_meters = 10.0f
+                )
+            },
+            cell_snapshot_reader = {
+                CellSnapshot(
+                    cell_id = "should_not_be_used",
+                    radio_type = "nr",
+                    area_code = "11",
+                    pci = 5
+                )
+            }
+        )
+
+        val result = location_step.execute(test_step_context())
+        assertEquals(StepStatus.SUCCESS, result.status)
+        assertTrue(result.details?.contains("cell_id=") == false)
+        assertNull(run_step_state.get_location()?.cell_snapshot)
     }
 
     private fun test_step_context(

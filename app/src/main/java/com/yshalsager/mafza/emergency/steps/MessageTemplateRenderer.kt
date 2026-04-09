@@ -26,6 +26,10 @@ object MessageTemplateRenderer {
         val longitude = location_snapshot?.longitude?.toString().orEmpty()
         val altitude = location_snapshot?.altitude?.toString().orEmpty()
         val accuracy = location_snapshot?.accuracy_meters?.toString().orEmpty()
+        val cell_id = location_snapshot?.cell_snapshot?.cell_id.orEmpty()
+        val cell_radio = location_snapshot?.cell_snapshot?.radio_type.orEmpty()
+        val cell_area = location_snapshot?.cell_snapshot?.area_code.orEmpty()
+        val cell_pci = location_snapshot?.cell_snapshot?.pci?.toString().orEmpty()
         val maps_url = if (location_snapshot == null) "" else {
             "https://maps.google.com/?q=${location_snapshot.latitude},${location_snapshot.longitude}"
         }
@@ -43,6 +47,10 @@ object MessageTemplateRenderer {
             "{trigger}" to step_context.trigger.name,
             "{altitude}" to altitude,
             "{accuracy}" to accuracy,
+            "{cell_id}" to cell_id,
+            "{cell_radio}" to cell_radio,
+            "{cell_area}" to cell_area,
+            "{cell_pci}" to cell_pci,
             "{battery}" to battery_percent,
             "{locale}" to locale.toLanguageTag(),
             "{app_version}" to app_version

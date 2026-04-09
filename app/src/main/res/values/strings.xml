@@ -109,6 +109,7 @@
     <string name='profile_sms_contact_pick_no_phone'>Selected contact has no phone number.</string>
     <string name='profile_notify_target_label'>Chat/User Target (optional)</string>
     <string name='profile_message_template_label'>Alert Message Template</string>
+    <string name='profile_message_template_variables_hint'>Tap a variable to insert it into the template.</string>
     <string name='profile_message_bindings_title'>Message App Bindings</string>
     <string name='profile_message_bindings_subtitle'>Choose one or more apps to deliver the message.</string>
     <string name='profile_message_bindings_help'>Use one binding per app destination. Keep multiple bindings as backups.</string>

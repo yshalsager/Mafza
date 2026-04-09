@@ -109,6 +109,7 @@
     <string name='profile_sms_contact_pick_no_phone'>جهة الاتصال المختارة لا تحتوي رقم هاتف.</string>
     <string name='profile_notify_target_label'>هدف المحادثة/المستخدم (اختياري)</string>
     <string name='profile_message_template_label'>قالب رسالة التنبيه</string>
+    <string name='profile_message_template_variables_hint'>اضغط على أي متغير لإدراجه في القالب.</string>
     <string name='profile_message_bindings_title'>روابط تطبيقات المراسلة</string>
     <string name='profile_message_bindings_subtitle'>اختر تطبيقًا واحدًا أو أكثر لإرسال الرسالة.</string>
     <string name='profile_message_bindings_help'>استخدم رابطًا لكل تطبيق وجهة. يمكنك إبقاء أكثر من رابط كنسخة احتياطية.</string>

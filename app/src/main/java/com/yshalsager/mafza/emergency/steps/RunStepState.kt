@@ -6,7 +6,15 @@ data class LocationSnapshot(
     val latitude: Double,
     val longitude: Double,
     val altitude: Double?,
-    val accuracy_meters: Float?
+    val accuracy_meters: Float?,
+    val cell_snapshot: CellSnapshot? = null
+)
+
+data class CellSnapshot(
+    val cell_id: String?,
+    val radio_type: String?,
+    val area_code: String?,
+    val pci: Int?
 )
 
 class RunStepState {

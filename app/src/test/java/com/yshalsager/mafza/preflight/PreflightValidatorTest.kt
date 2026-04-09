@@ -20,7 +20,8 @@ class PreflightValidatorTest {
     fun `dry run stays ready when only live environment checks fail`() {
         val validator = validator(
             has_location_permission = false,
-            has_sms_permission = false
+            has_sms_permission = false,
+            has_phone_state_permission = false
         )
         val profile = EmergencyProfile(
             sms_recipients = listOf("+20123456789"),
@@ -39,8 +40,25 @@ class PreflightValidatorTest {
         assertFalse(report.live_ready)
         assertTrue(report.dry_run_ready)
         assertTrue(report.live_blocking_issues.contains("missing_location_permission"))
+        assertTrue(report.live_blocking_issues.contains("missing_read_phone_state_permission"))
         assertTrue(report.live_blocking_issues.contains("missing_send_sms_permission"))
         assertTrue(report.live_blocking_issues.contains("shizuku_permission_required_for_destructive_actions"))
+    }
+
+    @Test
+    fun `missing phone-state permission blocks live only`() {
+        val validator = validator(
+            has_phone_state_permission = false
+        )
+        val profile = EmergencyProfile(
+            sms_recipients = listOf("+20123456789")
+        )
+
+        val report = validator.validate(profile, ShizukuPermissionState())
+
+        assertFalse(report.live_ready)
+        assertTrue(report.dry_run_ready)
+        assertTrue(report.live_blocking_issues.contains("missing_read_phone_state_permission"))
     }
 
     @Test
@@ -465,6 +483,7 @@ class PreflightValidatorTest {
     private fun validator(
         has_location_permission: Boolean = true,
         has_sms_permission: Boolean = true,
+        has_phone_state_permission: Boolean = true,
         binding_available: Boolean = true
     ): PreflightValidator {
         return PreflightValidator(
@@ -472,6 +491,7 @@ class PreflightValidatorTest {
             action_provider_registry = ActionProviderRegistry(providers = emptyList()),
             has_location_permission_checker = { has_location_permission },
             has_sms_permission_checker = { has_sms_permission },
+            has_phone_state_permission_checker = { has_phone_state_permission },
             binding_available_checker = { binding_available },
             intent_resolver = { true }
         )
