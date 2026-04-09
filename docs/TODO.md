@@ -145,7 +145,7 @@
   - [x] trigger routing and external-trigger mode/toggle behavior
   - [x] foreground service lifecycle
   - [x] key UI flows (profile top-bar add -> action creation -> dirty-state)
-- [ ] Device tests for Shizuku authorized/unauthorized behavior
+- [x] Device tests for Shizuku authorized/unauthorized behavior (authorized test runs when Shizuku is granted; otherwise skipped)
 - [x] Device tests for provider unavailable fallback and dry-run no-side-effects
 - [ ] Screenshot regression tests for key UI states
 - [x] Verify debug/release side-by-side install

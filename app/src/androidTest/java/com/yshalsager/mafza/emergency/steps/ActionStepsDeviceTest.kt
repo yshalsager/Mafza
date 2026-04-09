@@ -15,11 +15,13 @@ import com.yshalsager.mafza.core.contracts.ProviderCapabilities
 import com.yshalsager.mafza.core.contracts.ProviderExecutionResult
 import com.yshalsager.mafza.core.contracts.ProviderPreflightResult
 import com.yshalsager.mafza.core.contracts.ProviderRequest
+import com.yshalsager.mafza.core.contracts.ShellCommandSpec
 import com.yshalsager.mafza.core.contracts.StepContext
 import com.yshalsager.mafza.core.contracts.StepStatus
 import com.yshalsager.mafza.core.contracts.TriggerSource
 import com.yshalsager.mafza.emergency.providers.ActionProviderRegistry
 import com.yshalsager.mafza.emergency.providers.IntentMessageAppProvider
+import com.yshalsager.mafza.emergency.shell.ShizukuCommandExecutor
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -159,6 +161,56 @@ class ActionStepsDeviceTest {
         val result = step.execute(test_step_context())
         assertEquals(StepStatus.SKIPPED_UNAVAILABLE, result.status)
         assertEquals("missing_send_sms_permission", result.details)
+    }
+
+    @Test
+    fun uninstall_apps_step_skips_when_shizuku_is_unavailable() = runBlocking {
+        val app_context = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+        val command_executor = ShizukuCommandExecutor(app_context = app_context)
+        assumeTrue("Shizuku is available on this device; unauthorized-path test skipped", !command_executor.is_available())
+
+        val step = UninstallAppsStep(command_executor = command_executor)
+        val profile = EmergencyProfile(
+            destructive_actions_enabled = true,
+            uninstall_allowlist = listOf("com.example.target")
+        )
+
+        val result = step.execute(test_step_context(profile = profile))
+        assertEquals(StepStatus.SKIPPED_UNAVAILABLE, result.status)
+        assertEquals("shizuku_unavailable", result.details)
+    }
+
+    @Test
+    fun advanced_shell_step_executes_when_shizuku_is_authorized() = runBlocking {
+        val app_context = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+        val command_executor = ShizukuCommandExecutor(app_context = app_context)
+        assumeTrue("Shizuku must be running and granted for authorized-path test", command_executor.is_available())
+
+        val probe_result = command_executor.execute_argv(
+            argv = listOf("sh", "-c", "true"),
+            timeout_seconds = 3
+        )
+        assumeTrue("Shizuku user-service probe is unavailable on this device", !probe_result.unavailable)
+        assumeTrue("Shizuku probe command must succeed to run authorized-path test", probe_result.exit_code == 0)
+
+        val step = AdvancedShellCommandsStep(command_executor = command_executor)
+        val profile = EmergencyProfile(
+            destructive_actions_enabled = true,
+            advanced_shell_commands = listOf(
+                ShellCommandSpec(
+                    id = "authorized_probe",
+                    label = "Authorized Probe",
+                    argv = listOf("sh", "-c", "true"),
+                    raw_shell = null,
+                    timeout_seconds = 3,
+                    continue_on_failure = false,
+                    enabled = true
+                )
+            )
+        )
+
+        val result = step.execute(test_step_context(profile = profile))
+        assertEquals(StepStatus.SUCCESS, result.status)
     }
 
     private fun find_share_target_package(): String? {
