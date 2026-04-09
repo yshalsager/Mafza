@@ -88,11 +88,11 @@
 - [ ] Trigger post-restore preflight refresh
 
 ## 7) UI Foundation
-- [ ] Set up Navigation Compose routes: `Home`, `Profile`, `History`, `RunDetails(runId)`
+- [x] Set up Navigation Compose routes: `Home`, `Profile`, `History`, `RunDetails(runId)`
   - [x] `Home`
   - [x] `Profile`
-  - [ ] `History`
-  - [ ] `RunDetails(runId)`
+  - [x] `History`
+  - [x] `RunDetails(runId)`
 - [ ] Implement app theme token layer (spacing/shape/typography abstractions)
   - [x] Material 3 theme baseline
 - [x] Add dynamic color support:
@@ -102,12 +102,12 @@
 - [ ] Implement accessibility baseline (contrast, touch targets, semantics, dynamic type)
 
 ## 8) UI Screens
-- [ ] Home:
+- [x] Home:
   - [x] Preflight status card + fix actions
   - [x] `Run Live` and `Run Dry Run` CTAs
-  - [x] Live confirmation dialog
+  - [x] direct `Run Live` start (no confirmation dialog)
   - [x] full-screen cancel overlay (duration reflects user setting)
-  - [ ] health card (last successful Live/Dry Run + stale warning)
+  - [x] health card (last successful Live/Dry Run + stale warning)
 - [ ] Profile:
   - [x] Single settings form
   - [x] unified action list with top-bar add flow (add/remove/reorder all action types)
@@ -121,7 +121,7 @@
   - [x] global safety toggles (`Destructive Actions Enabled`, `Triggers Enabled`)
   - [ ] biometric/PIN gate for sensitive edits
   - [ ] backup/restore UI flow (export, restore, preview, confirm)
-- [ ] History:
+- [x] History:
   - [x] compact rows + expandable step details
   - [x] mode/status badges
   - [x] run details navigation

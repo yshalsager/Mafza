@@ -242,6 +242,7 @@ private fun MafzaApp(
             ) {
                 composable(AppRoute.HOME.route) {
                     HomeScreen(
+                        history_dao = history_dao,
                         profile = profile,
                         preflight_report = preflight_report,
                         shizuku_state = shizuku_state,

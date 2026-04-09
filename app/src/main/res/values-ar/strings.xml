@@ -294,6 +294,11 @@
     <string name='run_actions_title'>التشغيل</string>
     <string name='run_live_action'>تشغيل مباشر</string>
     <string name='run_dry_run_action'>تشغيل تجريبي</string>
+    <string name='home_health_title'>صحة التشغيل</string>
+    <string name='home_health_last_live'>آخر تشغيل مباشر ناجح: %1$s</string>
+    <string name='home_health_last_dry_run'>آخر تشغيل تجريبي ناجح: %1$s</string>
+    <string name='home_health_never'>أبدًا</string>
+    <string name='home_health_stale_warning'>تحذير: واحدة أو أكثر من إشارات صحة التشغيل قديمة أو مفقودة.</string>
     <string name='run_live_cancel_action'>إلغاء</string>
     <string name='cancel_window_title'>نافذة الإلغاء</string>
     <string name='cancel_window_body'>بدأ التشغيل المباشر. ألغِ خلال %1$d ثوانٍ.</string>
