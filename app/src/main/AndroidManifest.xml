@@ -10,6 +10,21 @@
         android:name='android.hardware.telephony'
         android:required='false' />
 
+    <queries>
+        <intent>
+            <action android:name='android.intent.action.MAIN' />
+            <category android:name='android.intent.category.LAUNCHER' />
+        </intent>
+        <intent>
+            <action android:name='android.intent.action.SEND' />
+            <data android:mimeType='text/plain' />
+        </intent>
+        <intent>
+            <action android:name='android.intent.action.SEND_MULTIPLE' />
+            <data android:mimeType='text/plain' />
+        </intent>
+    </queries>
+
     <application
         android:name='.MafzaApplication'
         android:allowBackup='false'

@@ -26,6 +26,26 @@ internal fun query_launchable_apps(context: Context): List<LaunchableAppOption> 
         .sortedBy { it.label.lowercase() }
 }
 
+internal fun query_message_share_apps(context: Context): List<LaunchableAppOption> {
+    val package_manager = context.packageManager
+    val share_intent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+    }
+    return package_manager
+        .queryIntentActivities(share_intent, PackageManager.MATCH_ALL)
+        .map { resolve_info ->
+            val activity_info = resolve_info.activityInfo
+            val label = resolve_info.loadLabel(package_manager).toString()
+            LaunchableAppOption(
+                label = label,
+                package_name = activity_info.packageName,
+                activity_name = activity_info.name
+            )
+        }
+        .distinctBy { it.package_name to it.activity_name }
+        .sortedBy { it.label.lowercase() }
+}
+
 internal fun query_installed_app_packages(context: Context): List<InstalledPackageOption> {
     val package_manager = context.packageManager
     val launcher_intent = Intent(Intent.ACTION_MAIN).apply {

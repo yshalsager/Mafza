@@ -121,9 +121,9 @@ internal fun ProfileScreen(
         )
     }
     val profile_list_state = rememberLazyListState()
-    val launchable_apps = remember(app_context) { query_launchable_apps(app_context) }
-    val message_binding_picker_options = remember(launchable_apps) {
-        launchable_apps.map { option ->
+    val message_share_apps = remember(app_context) { query_message_share_apps(app_context) }
+    val message_binding_picker_options = remember(message_share_apps) {
+        message_share_apps.map { option ->
             AppChooserOption(
                 label = option.label,
                 package_name = option.package_name,
