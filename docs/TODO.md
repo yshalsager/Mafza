@@ -99,7 +99,7 @@
   - [x] Android 12+: dynamic scheme
   - [x] Android 11: static Mafza palette fallback
 - [x] Implement English + Arabic localization baseline and RTL enablement
-- [ ] Implement accessibility baseline (contrast, touch targets, semantics, dynamic type)
+- [x] Implement accessibility baseline (contrast, touch targets, semantics, dynamic type)
 
 ## 8) UI Screens
 - [x] Home:

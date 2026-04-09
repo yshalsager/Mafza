@@ -22,6 +22,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.yshalsager.mafza.R
@@ -104,7 +106,8 @@ internal fun PreflightCard(
         ) {
             Text(
                 text = stringResource(R.string.preflight_title),
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.semantics { heading() }
             )
             Text(
                 text = when {
@@ -170,7 +173,8 @@ internal fun RunActionsCard(
         ) {
             Text(
                 text = stringResource(R.string.run_actions_title),
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.semantics { heading() }
             )
             Button(
                 onClick = on_run_live,

@@ -299,6 +299,11 @@
     <string name='home_health_last_dry_run'>آخر تشغيل تجريبي ناجح: %1$s</string>
     <string name='home_health_never'>أبدًا</string>
     <string name='home_health_stale_warning'>تحذير: واحدة أو أكثر من إشارات صحة التشغيل قديمة أو مفقودة.</string>
+    <string name='a11y_state_on'>مفعل</string>
+    <string name='a11y_state_off'>غير مفعل</string>
+    <string name='a11y_expanded'>موسع</string>
+    <string name='a11y_collapsed'>مطوي</string>
+    <string name='history_row_accessibility'>تشغيل %1$s، %2$s، بدأ عند %3$s</string>
     <string name='run_live_cancel_action'>إلغاء</string>
     <string name='cancel_window_title'>نافذة الإلغاء</string>
     <string name='cancel_window_body'>بدأ التشغيل المباشر. ألغِ خلال %1$d ثوانٍ.</string>

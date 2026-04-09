@@ -25,6 +25,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yshalsager.mafza.core.contracts.ExecutionMode
@@ -96,9 +100,16 @@ internal fun HomeScreen(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        val destructive_switch_state = if (profile.destructive_actions_enabled) {
+            stringResource(R.string.a11y_state_on)
+        } else {
+            stringResource(R.string.a11y_state_off)
+        }
+        val destructive_switch_label = stringResource(R.string.destructive_toggle_title)
         Text(
             text = stringResource(R.string.home_title),
-            style = MaterialTheme.typography.headlineMedium
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.semantics { heading() }
         )
 
         PreflightCard(
@@ -144,7 +155,12 @@ internal fun HomeScreen(
                         Switch(
                             checked = profile.destructive_actions_enabled,
                             onCheckedChange = on_set_destructive_actions_enabled,
-                            modifier = Modifier.align(Alignment.CenterStart)
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .semantics {
+                                    contentDescription = destructive_switch_label
+                                    stateDescription = destructive_switch_state
+                                }
                         )
                     }
                 }

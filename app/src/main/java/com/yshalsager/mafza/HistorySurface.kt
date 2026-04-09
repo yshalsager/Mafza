@@ -20,6 +20,12 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -52,7 +58,8 @@ internal fun HistoryScreen(
             ) {
                 Text(
                     text = stringResource(R.string.history_empty_title),
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.semantics { heading() }
                 )
                 Text(
                     text = stringResource(R.string.history_empty_subtitle),
@@ -90,9 +97,25 @@ private fun RunHistoryRow(
     on_toggle_expand: () -> Unit,
     on_open_run_details: (String) -> Unit
 ) {
+    val run_row_label = stringResource(
+        R.string.history_row_accessibility,
+        run.mode.mode_label(),
+        run.status.run_status_label(),
+        format_epoch_ms(run.started_at_epoch_ms)
+    )
+    val row_state_label = if (is_expanded) {
+        stringResource(R.string.a11y_expanded)
+    } else {
+        stringResource(R.string.a11y_collapsed)
+    }
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .semantics {
+                role = Role.Button
+                contentDescription = run_row_label
+                stateDescription = row_state_label
+            }
             .clickable(onClick = on_toggle_expand)
     ) {
         Column(
@@ -108,7 +131,8 @@ private fun RunHistoryRow(
                 Text(
                     text = stringResource(R.string.history_run_id, run.run_id.take(8)),
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.semantics { heading() }
                 )
                 Text(
                     text = format_epoch_ms(run.started_at_epoch_ms),
@@ -228,7 +252,8 @@ internal fun RunDetailsScreen(
         item {
             Text(
                 text = stringResource(R.string.run_details_steps_title),
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.semantics { heading() }
             )
         }
 
