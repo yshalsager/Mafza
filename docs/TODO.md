@@ -148,7 +148,7 @@
 - [ ] Device tests for Shizuku authorized/unauthorized behavior
 - [x] Device tests for provider unavailable fallback and dry-run no-side-effects
 - [ ] Screenshot regression tests for key UI states
-- [ ] Verify debug/release side-by-side install
+- [x] Verify debug/release side-by-side install
 
 ## 11) CI And Release Gates
 - [ ] Configure CI: lint + static analysis + unit tests + instrumentation/screenshot jobs
