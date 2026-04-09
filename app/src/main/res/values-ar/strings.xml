@@ -254,6 +254,11 @@
     <string name='profile_no_pending_changes'>لا توجد تغييرات معلقة.</string>
     <string name='profile_saved_successfully'>تم حفظ الملف.</string>
     <string name='profile_save_error_prefix'>تعذر حفظ الملف: </string>
+    <string name='profile_sensitive_auth_title'>أكد تغييرات الملف الحساسة</string>
+    <string name='profile_sensitive_auth_subtitle'>وثّق باستخدام قفل الجهاز قبل تطبيق هذه التغييرات.</string>
+    <string name='profile_sensitive_auth_unavailable'>مصادقة الجهاز غير متاحة على هذا الجهاز.</string>
+    <string name='profile_sensitive_auth_no_secure_lock'>قم بإعداد رقم سري أو نمط أو كلمة مرور للجهاز لتعديل إعدادات الملف الحساسة.</string>
+    <string name='profile_sensitive_auth_cancelled'>لم يتم حفظ التغييرات الحساسة لأن المصادقة أُلغيت.</string>
     <string name='profile_safety_warning'>تفعيل الإجراءات التدميرية أو الإزالة الذاتية قد يزيل تطبيقات وبيانات بشكل دائم.</string>
     <string name='profile_destructive_confirm_title'>تفعيل الإجراءات التدميرية؟</string>
     <string name='profile_destructive_confirm_body'>يسمح هذا بتشغيل خطوات إزالة التثبيت والحذف وأوامر الشل المتقدمة في الوضع المباشر.</string>

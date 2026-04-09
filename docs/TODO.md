@@ -119,7 +119,7 @@
   - [x] action policy controls (enabled/required/continue/order, per-instance via `policy_key`)
   - [x] advanced shell command editor (add/edit/reorder)
   - [x] global safety toggles (`Destructive Actions Enabled`, `Triggers Enabled`)
-  - [ ] biometric/PIN gate for sensitive edits
+  - [x] biometric/PIN gate for sensitive edits
   - [ ] backup/restore UI flow (export, restore, preview, confirm)
 - [x] History:
   - [x] compact rows + expandable step details
@@ -144,7 +144,7 @@
 - [ ] Instrumentation tests for trigger routing, service lifecycle, UI flows
   - [x] trigger routing and external-trigger mode/toggle behavior
   - [ ] foreground service lifecycle
-  - [ ] key UI flows
+  - [x] key UI flows (profile top-bar add -> action creation -> dirty-state)
 - [ ] Device tests for Shizuku authorized/unauthorized behavior
 - [x] Device tests for provider unavailable fallback and dry-run no-side-effects
 - [ ] Screenshot regression tests for key UI states

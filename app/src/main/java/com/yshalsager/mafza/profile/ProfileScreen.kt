@@ -1,5 +1,7 @@
 package com.yshalsager.mafza.profile
 
+import android.app.Activity
+import android.app.KeyguardManager
 import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -103,6 +105,7 @@ internal fun ProfileScreen(
     var show_add_action_sheet by remember { mutableStateOf(false) }
     var add_action_group by remember { mutableStateOf<ProfileActionGroup?>(null) }
     var recent_add_action_types by remember { mutableStateOf<List<ProfileActionRowType>>(emptyList()) }
+    var pending_sensitive_save by remember { mutableStateOf<(() -> Unit)?>(null) }
     var editing_action_row_id by remember { mutableStateOf<String?>(null) }
     var show_reorder_helper by remember { mutableStateOf(false) }
     var profile_settings_expanded by remember { mutableStateOf(false) }
@@ -136,6 +139,41 @@ internal fun ProfileScreen(
                 package_name = option.package_name
             )
         }
+    }
+    val keyguard_manager = remember(app_context) {
+        app_context.getSystemService(KeyguardManager::class.java)
+    }
+    val sensitive_auth_launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val pending_save = pending_sensitive_save
+        pending_sensitive_save = null
+        if (result.resultCode == Activity.RESULT_OK) {
+            pending_save?.invoke()
+            return@rememberLauncherForActivityResult
+        }
+        if (pending_save != null) {
+            saved_successfully = false
+            save_error_message = app_context.getString(R.string.profile_sensitive_auth_cancelled)
+        }
+    }
+    val launch_sensitive_auth_for_save: () -> Boolean = launch@{
+        if (keyguard_manager?.isDeviceSecure != true) {
+            saved_successfully = false
+            save_error_message = app_context.getString(R.string.profile_sensitive_auth_no_secure_lock)
+            return@launch false
+        }
+        val intent = keyguard_manager.createConfirmDeviceCredentialIntent(
+            app_context.getString(R.string.profile_sensitive_auth_title),
+            app_context.getString(R.string.profile_sensitive_auth_subtitle)
+        )
+        if (intent == null) {
+            saved_successfully = false
+            save_error_message = app_context.getString(R.string.profile_sensitive_auth_unavailable)
+            return@launch false
+        }
+        sensitive_auth_launcher.launch(intent)
+        true
     }
 
     LaunchedEffect(add_action_nonce) {
@@ -678,59 +716,11 @@ internal fun ProfileScreen(
         saved_successfully = false
         baseline_editor_signature = build_profile_editor_signature_from_profile(profile)
     }
-    val save_changes: () -> Unit = save_changes@{
-        if (is_saving || validation_issues.isNotEmpty()) return@save_changes
+    val persist_profile: (EmergencyProfile) -> Unit = { updated_profile ->
         app_scope.launch {
             is_saving = true
-            val updated_profile = profile.copy(
-                sms_recipients = normalized_sms_recipients,
-                notify_target = notify_target_input.trim(),
-                message_template = message_template_input,
-                cancel_window_seconds = parse_int_or_fallback(
-                    value = cancel_window_input,
-                    fallback = profile.cancel_window_seconds,
-                    min_value = PROFILE_MIN_CANCEL_WINDOW_SECONDS,
-                    max_value = PROFILE_MAX_CANCEL_WINDOW_SECONDS
-                ),
-                location_timeout_seconds = parse_int_or_fallback(
-                    value = location_timeout_input,
-                    fallback = profile.location_timeout_seconds,
-                    min_value = PROFILE_MIN_STEP_TIMEOUT_SECONDS,
-                    max_value = PROFILE_MAX_LOCATION_TIMEOUT_SECONDS
-                ),
-                sms_timeout_seconds = parse_int_or_fallback(
-                    value = sms_timeout_input,
-                    fallback = profile.sms_timeout_seconds,
-                    min_value = PROFILE_MIN_STEP_TIMEOUT_SECONDS,
-                    max_value = PROFILE_MAX_SMS_TIMEOUT_SECONDS
-                ),
-                intent_timeout_seconds = parse_int_or_fallback(
-                    value = intent_timeout_input,
-                    fallback = profile.intent_timeout_seconds,
-                    min_value = PROFILE_MIN_STEP_TIMEOUT_SECONDS,
-                    max_value = PROFILE_MAX_INTENT_TIMEOUT_SECONDS
-                ),
-                uninstall_allowlist = normalized_uninstall_packages,
-                delete_allowlist = configured_delete_targets,
-                advanced_shell_commands = configured_shell_commands,
-                action_bindings = build_profile_action_bindings(
-                    existing_bindings = profile.action_bindings,
-                    message_app_bindings = message_app_bindings
-                ),
-                intent_actions = build_profile_intent_actions(intent_actions),
-                action_policies = build_profile_action_policies(
-                    existing_policies = profile.action_policies,
-                    message_app_bindings = message_app_bindings,
-                    action_policy_rows = action_policy_rows,
-                    removed_action_policy_map = removed_action_policy_map,
-                    intent_actions = intent_actions,
-                    removed_intent_policy_keys = removed_intent_policy_keys
-                ),
-                destructive_actions_enabled = destructive_actions_enabled,
-                triggers_enabled = triggers_enabled,
-                self_uninstall_enabled = self_uninstall_enabled
-            )
-
+            saved_successfully = false
+            save_error_message = null
             runCatching {
                 profile_store.write_profile(updated_profile)
             }.onSuccess {
@@ -743,6 +733,65 @@ internal fun ProfileScreen(
             }
             is_saving = false
         }
+    }
+    val save_changes: () -> Unit = save_changes@{
+        if (is_saving || validation_issues.isNotEmpty()) return@save_changes
+        val updated_profile = profile.copy(
+            sms_recipients = normalized_sms_recipients,
+            notify_target = notify_target_input.trim(),
+            message_template = message_template_input,
+            cancel_window_seconds = parse_int_or_fallback(
+                value = cancel_window_input,
+                fallback = profile.cancel_window_seconds,
+                min_value = PROFILE_MIN_CANCEL_WINDOW_SECONDS,
+                max_value = PROFILE_MAX_CANCEL_WINDOW_SECONDS
+            ),
+            location_timeout_seconds = parse_int_or_fallback(
+                value = location_timeout_input,
+                fallback = profile.location_timeout_seconds,
+                min_value = PROFILE_MIN_STEP_TIMEOUT_SECONDS,
+                max_value = PROFILE_MAX_LOCATION_TIMEOUT_SECONDS
+            ),
+            sms_timeout_seconds = parse_int_or_fallback(
+                value = sms_timeout_input,
+                fallback = profile.sms_timeout_seconds,
+                min_value = PROFILE_MIN_STEP_TIMEOUT_SECONDS,
+                max_value = PROFILE_MAX_SMS_TIMEOUT_SECONDS
+            ),
+            intent_timeout_seconds = parse_int_or_fallback(
+                value = intent_timeout_input,
+                fallback = profile.intent_timeout_seconds,
+                min_value = PROFILE_MIN_STEP_TIMEOUT_SECONDS,
+                max_value = PROFILE_MAX_INTENT_TIMEOUT_SECONDS
+            ),
+            uninstall_allowlist = normalized_uninstall_packages,
+            delete_allowlist = configured_delete_targets,
+            advanced_shell_commands = configured_shell_commands,
+            action_bindings = build_profile_action_bindings(
+                existing_bindings = profile.action_bindings,
+                message_app_bindings = message_app_bindings
+            ),
+            intent_actions = build_profile_intent_actions(intent_actions),
+            action_policies = build_profile_action_policies(
+                existing_policies = profile.action_policies,
+                message_app_bindings = message_app_bindings,
+                action_policy_rows = action_policy_rows,
+                removed_action_policy_map = removed_action_policy_map,
+                intent_actions = intent_actions,
+                removed_intent_policy_keys = removed_intent_policy_keys
+            ),
+            destructive_actions_enabled = destructive_actions_enabled,
+            triggers_enabled = triggers_enabled,
+            self_uninstall_enabled = self_uninstall_enabled
+        )
+        if (has_sensitive_profile_changes(profile, updated_profile)) {
+            pending_sensitive_save = { persist_profile(updated_profile) }
+            if (!launch_sensitive_auth_for_save()) {
+                pending_sensitive_save = null
+            }
+            return@save_changes
+        }
+        persist_profile(updated_profile)
     }
 
     Column(modifier = Modifier.fillMaxSize()) {

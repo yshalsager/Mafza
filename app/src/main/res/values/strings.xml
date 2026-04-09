@@ -254,6 +254,11 @@
     <string name='profile_no_pending_changes'>No pending changes.</string>
     <string name='profile_saved_successfully'>Profile saved.</string>
     <string name='profile_save_error_prefix'>Could not save profile: </string>
+    <string name='profile_sensitive_auth_title'>Confirm sensitive profile changes</string>
+    <string name='profile_sensitive_auth_subtitle'>Authenticate with your device lock before applying these changes.</string>
+    <string name='profile_sensitive_auth_unavailable'>Device authentication is unavailable on this device.</string>
+    <string name='profile_sensitive_auth_no_secure_lock'>Set a device PIN, pattern, or password to edit sensitive profile settings.</string>
+    <string name='profile_sensitive_auth_cancelled'>Sensitive changes were not saved because authentication was canceled.</string>
     <string name='profile_safety_warning'>Enabling destructive actions or self uninstall can permanently remove apps and data.</string>
     <string name='profile_destructive_confirm_title'>Enable destructive actions?</string>
     <string name='profile_destructive_confirm_body'>This allows uninstall, delete, and advanced shell steps to run in Live mode.</string>
