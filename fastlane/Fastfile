@@ -1,0 +1,99 @@
+opt_out_usage
+
+def repo_path(*parts)
+  File.expand_path(File.join('..', *parts), __dir__)
+end
+
+def metadata_path
+  repo_path('fastlane', 'metadata', 'android')
+end
+
+def debug_app_apk_path
+  repo_path('app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk')
+end
+
+def debug_tests_apk_path
+  repo_path('app', 'build', 'outputs', 'apk', 'androidTest', 'debug', 'app-debug-androidTest.apk')
+end
+
+def screenshot_test_package
+  'com.yshalsager.mafza.screenshots'
+end
+
+def debug_app_package_name
+  'com.yshalsager.mafza.debug'
+end
+
+def debug_tests_package_name
+  "#{debug_app_package_name}.test"
+end
+
+def adb_binary_path
+  sdk_root = ENV['ANDROID_HOME'] || ENV['ANDROID_SDK_ROOT'] || ENV['ANDROID_SDK']
+  if sdk_root.to_s.empty?
+    local_properties = repo_path('local.properties')
+    sdk_root = File.read(local_properties)[/^sdk\.dir=(.+)$/, 1]&.strip if File.exist?(local_properties)
+  end
+  UI.user_error!('ANDROID_HOME or ANDROID_SDK_ROOT must be set') if sdk_root.to_s.empty?
+  File.join(sdk_root, 'platform-tools', 'adb')
+end
+
+platform :android do
+  desc 'Validate fastlane metadata basics'
+  lane :validate_metadata do
+    [
+      repo_path('fastlane', 'metadata', 'android', 'en-US'),
+      repo_path('fastlane', 'metadata', 'android', 'ar'),
+      repo_path('fastlane', 'metadata', 'android', 'en-US', 'title.txt'),
+      repo_path('fastlane', 'metadata', 'android', 'en-US', 'short_description.txt'),
+      repo_path('fastlane', 'metadata', 'android', 'en-US', 'full_description.txt'),
+      repo_path('fastlane', 'metadata', 'android', 'ar', 'title.txt'),
+      repo_path('fastlane', 'metadata', 'android', 'ar', 'short_description.txt'),
+      repo_path('fastlane', 'metadata', 'android', 'ar', 'full_description.txt')
+    ].each do |path|
+      UI.user_error!("Missing required metadata path: #{path}") unless File.exist?(path)
+    end
+  end
+
+  desc 'Capture app screenshots for en-US and ar'
+  lane :capture_screenshots do
+    device = adb_devices(adb_path: adb_binary_path).first
+    UI.user_error!('There are no connected and authorized devices or emulators') unless device
+
+    ['en-US', 'ar'].each_with_index do |locale, index|
+      adb(adb_path: adb_binary_path, serial: device.serial, command: 'root')
+      adb(adb_path: adb_binary_path, serial: device.serial, command: 'wait-for-device')
+      adb(adb_path: adb_binary_path, serial: device.serial, command: 'shell date 030912202026.00')
+
+      screengrab(
+        locales: [locale],
+        clear_previous_screenshots: index.zero?,
+        output_directory: metadata_path,
+        app_apk_path: debug_app_apk_path,
+        tests_apk_path: debug_tests_apk_path,
+        use_tests_in_packages: screenshot_test_package,
+        app_package_name: debug_app_package_name,
+        tests_package_name: debug_tests_package_name,
+        use_timestamp_suffix: false,
+        skip_open_summary: true,
+        specific_device: device.serial,
+        use_adb_root: true
+      )
+    end
+  end
+
+  desc 'Upload signed release bundle to Google Play'
+  lane :upload_play do |options|
+    upload_to_play_store(
+      aab: options[:aab] || ENV['PLAY_AAB_PATH'],
+      track: options[:track] || 'production',
+      release_status: options[:release_status] || 'completed',
+      metadata_path: metadata_path,
+      skip_upload_apk: true,
+      skip_upload_aab: false,
+      skip_upload_metadata: false,
+      skip_upload_images: false,
+      skip_upload_screenshots: false
+    )
+  end
+end

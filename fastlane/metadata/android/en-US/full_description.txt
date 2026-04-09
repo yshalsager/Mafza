@@ -1,0 +1,6 @@
+Mafza helps you run emergency action pipelines from one trigger.
+
+- Configure communication, app/intent, and destructive actions.
+- Run in Live mode or Dry Run mode.
+- Keep run history for audit and troubleshooting.
+- Designed for Android 11+.
