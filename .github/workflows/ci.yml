@@ -1,13 +1,16 @@
-name: Android CI
+name: CI
 
 on:
   push:
     branches:
-      - master
+      - '**'
   pull_request:
+    branches:
+      - '**'
+  workflow_dispatch:
 
 concurrency:
-  group: android-ci-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -17,20 +20,21 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: android-actions/setup-android@v4
         with:
-          distribution: temurin
-          java-version: '17'
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - uses: jdx/mise-action@v4
+        with:
+          cache: true
+          cache_key_prefix: 'mise-v1'
+
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Run lint, unit tests, and assemble
-        run: ./gradlew :app:lintDebug :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease
+        run: mise x java -- ./gradlew :app:lintDebug :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease
 
       - name: Prepare CI APK names
         run: |
@@ -39,7 +43,7 @@ jobs:
           cp app/build/outputs/renamed-apk/release/mafza-*-release.apk app/build/outputs/ci-apk/mafza-release.apk
 
       - name: Upload APK artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mafza-apk-artifacts
           path: |
@@ -54,25 +58,38 @@ jobs:
     needs: lint_unit_assemble
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: android-actions/setup-android@v4
         with:
-          distribution: temurin
-          java-version: '17'
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - uses: jdx/mise-action@v4
+        with:
+          cache: true
+          cache_key_prefix: 'mise-v1'
+
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Run connected instrumentation tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          api-level: 36
           arch: x86_64
           profile: pixel_6
           disable-animations: true
           script: |
-            ./gradlew :app:connectedDebugAndroidTest \
+            mise x java -- ./gradlew :app:connectedDebugAndroidTest \
               -Pandroid.testInstrumentationRunnerArguments.class=com.yshalsager.mafza.emergency.EmergencyTriggerSurfacesTest,com.yshalsager.mafza.emergency.steps.ActionStepsDeviceTest,com.yshalsager.mafza.profile.ProfileUiFlowTest
+
+  validate_fastlane_metadata:
+    name: Validate Fastlane Metadata
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ashutoshgngwr/validate-fastlane-supply-metadata@v2
+        with:
+          fastlaneDir: ./fastlane/metadata/android
+          usePlayStoreLocales: false

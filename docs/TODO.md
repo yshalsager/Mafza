@@ -151,11 +151,11 @@
 - [x] Verify debug/release side-by-side install
 
 ## 11) CI And Release Gates
-- [ ] Configure CI: lint + static analysis + unit tests + instrumentation/screenshot jobs
-  - [x] baseline workflow (`.github/workflows/android-ci.yml`) for lint + unit + assemble + emulator instrumentation
-  - [ ] add screenshot regression job once screenshot tests exist
+- [x] Configure CI: lint + static analysis + unit tests + instrumentation/screenshot jobs
+  - [x] baseline workflow (`.github/workflows/ci.yml`) for lint + unit + assemble + emulator instrumentation
+  - [x] add screenshot regression workflow (`.github/workflows/screenshots.yml`) with fastlane screengrab
 - [x] Enforce dependency/security checks (locking + secret scanning)
-  - [x] add Dependabot updates (`.github/dependabot.yml`) for Gradle and GitHub Actions
+  - [x] add Renovate updates (`renovate.json5`) for Gradle, Gradle Wrapper, and GitHub Actions
   - [x] add secret scanning workflow (`.github/workflows/security.yml`) via gitleaks
   - [x] add dependency locking strategy for Gradle artifacts (`gradle.lockfile`)
 - [x] Enforce must-pass release checklist from `PLAN.md`
@@ -163,3 +163,4 @@
   - [x] add checklist verifier (`scripts/verify_release_checklist.sh`) for `docs/RELEASE_CHECKLIST.md`
 - [x] Produce signed internal release APK and debug APK artifacts
   - [x] CI uploads deterministic names: `mafza-debug.apk`, `mafza-release.apk`
+- [x] Add release automation (`.github/workflows/release.yml`) with tagged builds and GitHub release artifacts
