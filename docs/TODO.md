@@ -154,9 +154,9 @@
 - [ ] Configure CI: lint + static analysis + unit tests + instrumentation/screenshot jobs
   - [x] baseline workflow (`.github/workflows/android-ci.yml`) for lint + unit + assemble + emulator instrumentation
   - [ ] add screenshot regression job once screenshot tests exist
-- [ ] Enforce dependency/security checks (locking + secret scanning)
+- [x] Enforce dependency/security checks (locking + secret scanning)
   - [x] add Dependabot updates (`.github/dependabot.yml`) for Gradle and GitHub Actions
   - [x] add secret scanning workflow (`.github/workflows/security.yml`) via gitleaks
-  - [ ] add dependency locking strategy for Gradle artifacts
+  - [x] add dependency locking strategy for Gradle artifacts (`gradle.lockfile`)
 - [ ] Enforce must-pass release checklist from `PLAN.md`
 - [ ] Produce signed internal release APK and debug APK artifacts
