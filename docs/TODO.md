@@ -141,7 +141,7 @@
   - [x] intent launch step live-path
   - [x] message-provider step with capability-gated share target
   - [x] SMS step permission-gate behavior
-- [ ] Instrumentation tests for trigger routing, service lifecycle, UI flows
+- [x] Instrumentation tests for trigger routing, service lifecycle, UI flows
   - [x] trigger routing and external-trigger mode/toggle behavior
   - [x] foreground service lifecycle
   - [x] key UI flows (profile top-bar add -> action creation -> dirty-state)

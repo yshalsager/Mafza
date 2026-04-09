@@ -5,8 +5,11 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ShortcutManager
+import androidx.lifecycle.Lifecycle
+import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.yshalsager.mafza.MainActivity
 import com.yshalsager.mafza.core.contracts.EmergencyProfile
 import com.yshalsager.mafza.core.contracts.ExecutionMode
 import com.yshalsager.mafza.core.contracts.RunStatus
@@ -36,6 +39,7 @@ class EmergencyTriggerSurfacesTest {
     private lateinit var activity_manager: ActivityManager
     private lateinit var app_package_name: String
     private lateinit var original_profile: EmergencyProfile
+    private lateinit var main_activity_scenario: ActivityScenario<MainActivity>
 
     @Before
     fun set_up(): Unit = runBlocking {
@@ -50,11 +54,15 @@ class EmergencyTriggerSurfacesTest {
         activity_manager = app_context.getSystemService(ActivityManager::class.java)
         app_package_name = app_context.packageName
         original_profile = profile_store.read_profile()
+        main_activity_scenario = ActivityScenario.launch(MainActivity::class.java).also { scenario ->
+            scenario.moveToState(Lifecycle.State.RESUMED)
+        }
     }
 
     @After
     fun tear_down(): Unit = runBlocking {
         profile_store.write_profile(original_profile)
+        main_activity_scenario.close()
         history_database.close()
     }
 
@@ -113,6 +121,25 @@ class EmergencyTriggerSurfacesTest {
     }
 
     @Test
+    fun manual_trigger_preserves_dry_run_mode() = runBlocking {
+        profile_store.write_profile(test_profile(triggers_enabled = true))
+        val app_context = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+        val latest_run_before = latest_run()?.run_id
+
+        val service_intent = Intent(app_context, EmergencyExecutionService::class.java).apply {
+            action = EmergencyServiceContract.ACTION_START_RUN
+            putExtra(EmergencyServiceContract.EXTRA_TRIGGER_SOURCE, TriggerSource.MANUAL_IN_APP.name)
+            putExtra(EmergencyServiceContract.EXTRA_EXECUTION_MODE, ExecutionMode.DRY_RUN.name)
+        }
+        app_context.startForegroundService(service_intent)
+
+        val latest_run_after = wait_for_new_run(previous_run_id = latest_run_before, timeout_millis = 15_000L)
+        assertNotNull(latest_run_after)
+        assertEquals(TriggerSource.MANUAL_IN_APP, latest_run_after?.trigger)
+        assertEquals(ExecutionMode.DRY_RUN, latest_run_after?.mode)
+    }
+
+    @Test
     fun receiver_forces_live_mode_for_external_trigger_actions() = runBlocking {
         profile_store.write_profile(test_profile(triggers_enabled = true))
         val app_context = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
@@ -156,6 +183,34 @@ class EmergencyTriggerSurfacesTest {
         assertTrue(latest_run_after?.status != RunStatus.RUNNING)
 
         assertTrue(wait_for_service_running_state(expected_running = false, timeout_millis = 10_000L))
+    }
+
+    @Test
+    fun duplicate_start_requests_do_not_create_second_run() = runBlocking {
+        profile_store.write_profile(
+            test_profile(triggers_enabled = true).copy(
+                cancel_window_seconds = 5,
+                location_timeout_seconds = 1
+            )
+        )
+        val app_context = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+        val run_count_before = history_dao.all_run_ids_desc().size
+        val latest_run_before = latest_run()?.run_id
+
+        val start_intent = Intent(app_context, EmergencyExecutionService::class.java).apply {
+            action = EmergencyServiceContract.ACTION_START_RUN
+            putExtra(EmergencyServiceContract.EXTRA_TRIGGER_SOURCE, TriggerSource.MANUAL_IN_APP.name)
+            putExtra(EmergencyServiceContract.EXTRA_EXECUTION_MODE, ExecutionMode.LIVE.name)
+        }
+        app_context.startForegroundService(start_intent)
+        app_context.startForegroundService(start_intent)
+
+        val created_run = wait_for_new_run(previous_run_id = latest_run_before, timeout_millis = 20_000L)
+        assertNotNull(created_run)
+        assertTrue(wait_for_service_running_state(expected_running = false, timeout_millis = 15_000L))
+
+        val run_count_after = history_dao.all_run_ids_desc().size
+        assertEquals(run_count_before + 1, run_count_after)
     }
 
     private suspend fun latest_run(): RunHistoryEntity? {

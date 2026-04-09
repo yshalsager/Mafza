@@ -1,11 +1,13 @@
 package com.yshalsager.mafza.profile
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.yshalsager.mafza.MainActivity
@@ -68,5 +70,24 @@ class ProfileUiFlowTest {
 
         compose_rule.onNodeWithText(no_number_summary).assertIsDisplayed()
         compose_rule.onNodeWithText(unsaved_changes_text).assertIsDisplayed()
+    }
+
+    @Test
+    fun add_action_sheet_does_not_reopen_after_tab_reentry() {
+        val app_context = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+        val history_tab_label = app_context.getString(R.string.history_title)
+        val profile_tab_label = app_context.getString(R.string.profile_title)
+        val add_action_label = app_context.getString(R.string.profile_topbar_add_action)
+        val choose_group_title = app_context.getString(R.string.profile_add_action_choose_group_title)
+
+        compose_rule.onNodeWithText(profile_tab_label).performClick()
+        compose_rule.onNodeWithContentDescription(add_action_label).performClick()
+        compose_rule.onNodeWithText(choose_group_title).assertIsDisplayed()
+        pressBack()
+
+        compose_rule.onNodeWithText(history_tab_label).performClick()
+        compose_rule.onNodeWithText(profile_tab_label).performClick()
+
+        compose_rule.onAllNodesWithText(choose_group_title).assertCountEquals(0)
     }
 }
