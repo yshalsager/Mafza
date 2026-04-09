@@ -108,7 +108,7 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.room.runtime)
     implementation(libs.shizuku.api)
-    runtimeOnly(libs.shizuku.provider)
+    implementation(libs.shizuku.provider)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

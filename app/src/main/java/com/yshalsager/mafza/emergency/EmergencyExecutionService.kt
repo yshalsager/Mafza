@@ -1,10 +1,12 @@
 package com.yshalsager.mafza.emergency
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
-import android.os.Build
+import android.content.pm.PackageManager
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -223,7 +225,6 @@ class EmergencyExecutionService : Service() {
     }
 
     private fun create_notification_channel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val channel = NotificationChannel(
             NOTIFICATION_CHANNEL_ID,
             getString(R.string.emergency_notification_channel_name),
@@ -246,9 +247,16 @@ class EmergencyExecutionService : Service() {
         start_foreground_notification(content_text)
     }
 
+    @SuppressLint("NotificationPermission")
     private fun update_notification(content_text: String) {
+        if (!can_post_notification_updates()) return
         val notification_manager = getSystemService(NotificationManager::class.java)
         notification_manager.notify(NOTIFICATION_ID, build_notification(content_text))
+    }
+
+    private fun can_post_notification_updates(): Boolean {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) return true
+        return checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun build_notification(content_text: String) = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)

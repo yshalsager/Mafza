@@ -184,6 +184,7 @@ class LocationStep(
         return null
     }
 
+    @SuppressLint("MissingPermission")
     private fun read_cell_snapshot(): CellSnapshot? {
         if (!has_phone_state_permission()) return null
 

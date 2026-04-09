@@ -152,6 +152,8 @@
 
 ## 11) CI And Release Gates
 - [ ] Configure CI: lint + static analysis + unit tests + instrumentation/screenshot jobs
+  - [x] baseline workflow (`.github/workflows/android-ci.yml`) for lint + unit + assemble + emulator instrumentation
+  - [ ] add screenshot regression job once screenshot tests exist
 - [ ] Enforce dependency/security checks (locking + secret scanning)
 - [ ] Enforce must-pass release checklist from `PLAN.md`
 - [ ] Produce signed internal release APK and debug APK artifacts
