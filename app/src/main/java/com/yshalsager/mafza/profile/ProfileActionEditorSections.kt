@@ -215,6 +215,184 @@ internal fun MessageBindingEditorSection(
 }
 
 @Composable
+internal fun TelegramBotActionEditorSection(
+    row: TelegramBotActionRow,
+    telegram_bot_actions: List<EditableTelegramBotAction>,
+    on_update_telegram_bot_actions: (List<EditableTelegramBotAction>) -> Unit,
+    test_status: String?,
+    on_test_bot: () -> Unit,
+    on_clear_test_status: () -> Unit,
+    show_advanced_execution_rule: Boolean,
+    on_toggle_advanced: () -> Unit,
+    on_mark_profile_dirty: () -> Unit
+) {
+    val action = telegram_bot_actions.getOrNull(row.item_index) ?: return
+
+    OutlinedTextField(
+        value = action.label,
+        onValueChange = { value ->
+            on_update_telegram_bot_actions(
+                telegram_bot_actions.update_item(row.item_index) { current_action ->
+                    current_action.copy(label = value)
+                }
+            )
+            on_clear_test_status()
+            on_mark_profile_dirty()
+        },
+        label = { Text(text = stringResource(R.string.profile_telegram_bot_label)) },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true
+    )
+    OutlinedTextField(
+        value = action.bot_token,
+        onValueChange = { value ->
+            on_update_telegram_bot_actions(
+                telegram_bot_actions.update_item(row.item_index) { current_action ->
+                    current_action.copy(bot_token = value)
+                }
+            )
+            on_clear_test_status()
+            on_mark_profile_dirty()
+        },
+        label = { Text(text = stringResource(R.string.profile_telegram_bot_token_label)) },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true
+    )
+    OutlinedTextField(
+        value = action.chat_id,
+        onValueChange = { value ->
+            on_update_telegram_bot_actions(
+                telegram_bot_actions.update_item(row.item_index) { current_action ->
+                    current_action.copy(chat_id = value)
+                }
+            )
+            on_clear_test_status()
+            on_mark_profile_dirty()
+        },
+        label = { Text(text = stringResource(R.string.profile_telegram_bot_chat_id_label)) },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true
+    )
+    OutlinedTextField(
+        value = action.template_override,
+        onValueChange = { value ->
+            on_update_telegram_bot_actions(
+                telegram_bot_actions.update_item(row.item_index) { current_action ->
+                    current_action.copy(template_override = value)
+                }
+            )
+            on_mark_profile_dirty()
+        },
+        label = { Text(text = stringResource(R.string.profile_telegram_bot_template_override_label)) },
+        modifier = Modifier.fillMaxWidth(),
+        minLines = 2
+    )
+    OutlinedTextField(
+        value = action.timeout_seconds,
+        onValueChange = { value ->
+            on_update_telegram_bot_actions(
+                telegram_bot_actions.update_item(row.item_index) { current_action ->
+                    current_action.copy(timeout_seconds = value)
+                }
+            )
+            on_mark_profile_dirty()
+        },
+        label = { Text(text = stringResource(R.string.profile_telegram_bot_timeout_label)) },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+    )
+    TextButton(
+        onClick = on_test_bot,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(text = stringResource(R.string.profile_telegram_bot_test_action))
+    }
+    if (test_status != null) {
+        val (status_text, is_success) = if (test_status.startsWith("error:")) {
+            test_status.removePrefix("error:") to false
+        } else {
+            val status_res_id = telegram_bot_test_status_res(test_status)
+            stringResource(status_res_id) to (test_status == "ready")
+        }
+        Text(
+            text = stringResource(R.string.profile_telegram_bot_test_result_prefix) + status_text,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (is_success) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+        )
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = stringResource(R.string.profile_telegram_bot_enabled_label),
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f)
+        )
+        Switch(
+            checked = action.enabled,
+            onCheckedChange = { enabled ->
+                on_update_telegram_bot_actions(
+                    telegram_bot_actions.update_item(row.item_index) { current_action ->
+                        current_action.copy(enabled = enabled)
+                    }
+                )
+                on_mark_profile_dirty()
+            }
+        )
+    }
+    AdvancedExecutionRuleToggle(
+        show_advanced_execution_rule = show_advanced_execution_rule,
+        on_toggle_advanced = on_toggle_advanced
+    )
+    if (show_advanced_execution_rule) {
+        PolicyModeSelector(
+            policy_mode = action.policy_mode,
+            on_select_mode = { selected_mode ->
+                on_update_telegram_bot_actions(
+                    telegram_bot_actions.update_item(row.item_index) { current_action ->
+                        current_action.copy(policy_mode = selected_mode)
+                    }
+                )
+                on_mark_profile_dirty()
+            }
+        )
+        if (action.policy_mode == ProfilePolicyMode.OVERRIDE) {
+            ExecutionRuleEditor(
+                rule = EditableActionPolicyRow(
+                    action_id = ActionId.NOTIFY_TELEGRAM_BOT,
+                    policy_key = ActionPolicyKeys.for_telegram_bot(action.id),
+                    enabled = action.policy_enabled,
+                    required = action.policy_required,
+                    continue_on_failure = action.policy_continue_on_failure,
+                    execution_order = parse_int_or_fallback(
+                        value = action.policy_execution_order,
+                        fallback = row.item_index + 1,
+                        min_value = PROFILE_MIN_POLICY_ORDER,
+                        max_value = PROFILE_MAX_POLICY_ORDER
+                    )
+                ),
+                on_update = { updated_rule ->
+                    on_update_telegram_bot_actions(
+                        telegram_bot_actions.update_item(row.item_index) { current_action ->
+                            current_action.copy(
+                                policy_enabled = updated_rule.enabled,
+                                policy_required = updated_rule.required,
+                                policy_continue_on_failure = updated_rule.continue_on_failure,
+                                policy_execution_order = updated_rule.execution_order.toString()
+                            )
+                        }
+                    )
+                    on_mark_profile_dirty()
+                }
+            )
+        }
+    }
+}
+
+@Composable
 internal fun IntentActionEditorSection(
     row: IntentActionRow,
     intent_actions: List<EditableIntentAction>,

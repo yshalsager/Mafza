@@ -147,7 +147,7 @@
   - [x] key UI flows (profile top-bar add -> action creation -> dirty-state)
 - [x] Device tests for Shizuku authorized/unauthorized behavior (authorized test runs when Shizuku is granted; otherwise skipped)
 - [x] Device tests for provider unavailable fallback and dry-run no-side-effects
-- [ ] Screenshot regression tests for key UI states
+- [x] Screenshot regression tests for key UI states
 - [x] Verify debug/release side-by-side install
 
 ## 11) CI And Release Gates

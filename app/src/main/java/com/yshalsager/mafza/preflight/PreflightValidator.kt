@@ -8,6 +8,8 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.core.content.ContextCompat
 import com.yshalsager.mafza.emergency.providers.ActionProviderRegistry
+import com.yshalsager.mafza.emergency.telegram.RealTelegramBotClient
+import com.yshalsager.mafza.emergency.telegram.TelegramBotClient
 import com.yshalsager.mafza.core.contracts.ActionBinding
 import com.yshalsager.mafza.core.contracts.ActionId
 import com.yshalsager.mafza.core.contracts.ActionPolicy
@@ -16,6 +18,7 @@ import com.yshalsager.mafza.core.contracts.DeleteTarget
 import com.yshalsager.mafza.core.contracts.EmergencyProfile
 import com.yshalsager.mafza.core.contracts.IntentActionSpec
 import com.yshalsager.mafza.core.contracts.StepBranch
+import com.yshalsager.mafza.core.contracts.TelegramBotActionSpec
 import com.yshalsager.mafza.shizuku.ShizukuPermissionState
 import java.io.File
 import java.nio.file.Files
@@ -31,6 +34,7 @@ data class PreflightReport(
 class PreflightValidator(
     private val app_context: Context,
     private val action_provider_registry: ActionProviderRegistry,
+    private val telegram_bot_client: TelegramBotClient = RealTelegramBotClient(),
     private val has_location_permission_checker: (() -> Boolean)? = null,
     private val has_sms_permission_checker: (() -> Boolean)? = null,
     private val has_phone_state_permission_checker: (() -> Boolean)? = null,
@@ -39,7 +43,8 @@ class PreflightValidator(
 ) {
     fun validate(
         profile: EmergencyProfile,
-        shizuku_permission_state: ShizukuPermissionState
+        shizuku_permission_state: ShizukuPermissionState,
+        perform_telegram_reachability_checks: Boolean = true
     ): PreflightReport {
         val live_blocking_issues = mutableListOf<String>()
         val dry_run_blocking_issues = mutableListOf<String>()
@@ -90,6 +95,13 @@ class PreflightValidator(
         }
 
         validate_action_bindings(profile, live_blocking_issues, dry_run_blocking_issues, warnings)
+        validate_telegram_bot_actions(
+            profile = profile,
+            live_blocking_issues = live_blocking_issues,
+            dry_run_blocking_issues = dry_run_blocking_issues,
+            warnings = warnings,
+            perform_reachability_checks = perform_telegram_reachability_checks
+        )
         validate_intent_actions(profile, live_blocking_issues, dry_run_blocking_issues, warnings)
 
         return PreflightReport(
@@ -197,6 +209,69 @@ class PreflightValidator(
         }
     }
 
+    private fun validate_telegram_bot_actions(
+        profile: EmergencyProfile,
+        live_blocking_issues: MutableList<String>,
+        dry_run_blocking_issues: MutableList<String>,
+        warnings: MutableList<String>,
+        perform_reachability_checks: Boolean
+    ) {
+        val enabled_actions = profile.telegram_bot_actions.filter { action ->
+            action.enabled && is_action_enabled(
+                action_policies = profile.action_policies,
+                action_id = ActionId.NOTIFY_TELEGRAM_BOT,
+                policy_key = ActionPolicyKeys.for_telegram_bot(action.id)
+            )
+        }
+
+        val duplicate_ids = enabled_actions
+            .map { it.id.trim().lowercase() }
+            .filter { it.isNotEmpty() }
+            .groupBy { it }
+            .filterValues { it.size > 1 }
+            .keys
+        if (duplicate_ids.isNotEmpty()) {
+            live_blocking_issues += "telegram_bot_duplicate_id"
+            dry_run_blocking_issues += "telegram_bot_duplicate_id"
+        }
+
+        enabled_actions.forEach { action ->
+            val action_id = action.id.trim()
+            if (action_id.isEmpty()) {
+                live_blocking_issues += "telegram_bot_missing_id"
+                dry_run_blocking_issues += "telegram_bot_missing_id"
+                return@forEach
+            }
+            if (!telegram_bot_action_structurally_valid(action)) {
+                live_blocking_issues += "invalid_telegram_bot_config_$action_id"
+                dry_run_blocking_issues += "invalid_telegram_bot_config_$action_id"
+                return@forEach
+            }
+
+            if (!perform_reachability_checks) return@forEach
+            val policy_key = ActionPolicyKeys.for_telegram_bot(action_id)
+            val is_required = is_action_required(
+                action_policies = profile.action_policies,
+                action_id = ActionId.NOTIFY_TELEGRAM_BOT,
+                policy_key = policy_key
+            )
+            val check = runCatching {
+                telegram_bot_client.check_bot(
+                    bot_token = action.bot_token.trim(),
+                    timeout_seconds = TELEGRAM_PREFLIGHT_TIMEOUT_SECONDS
+                )
+            }.getOrNull()
+            val ready = check?.ready == true
+            if (ready) return@forEach
+
+            if (is_required) {
+                live_blocking_issues += "required_telegram_bot_unavailable_$action_id"
+            } else {
+                warnings += "optional_telegram_bot_unavailable_$action_id"
+            }
+        }
+    }
+
     private fun has_location_permission(): Boolean {
         val override_checker = has_location_permission_checker
         if (override_checker != null) return override_checker()
@@ -276,10 +351,18 @@ class PreflightValidator(
 
     private fun action_id_branch(action_id: ActionId): StepBranch {
         return when (action_id) {
-            ActionId.SEND_SMS, ActionId.NOTIFY_MESSAGE_APP, ActionId.LAUNCH_INTENT -> StepBranch.NOTIFY
+            ActionId.SEND_SMS, ActionId.NOTIFY_MESSAGE_APP, ActionId.NOTIFY_TELEGRAM_BOT, ActionId.LAUNCH_INTENT -> StepBranch.NOTIFY
             ActionId.UNINSTALL_APPS, ActionId.DELETE_PATHS, ActionId.ADVANCED_SHELL_COMMANDS -> StepBranch.DESTRUCTIVE
             ActionId.SELF_UNINSTALL -> StepBranch.FINALIZE
         }
+    }
+
+    private fun telegram_bot_action_structurally_valid(action: TelegramBotActionSpec): Boolean {
+        val token = action.bot_token.trim()
+        val chat_id = action.chat_id.trim()
+        if (!TELEGRAM_BOT_TOKEN_REGEX.matches(token)) return false
+        if (!TELEGRAM_CHAT_ID_NUMERIC_REGEX.matches(chat_id) && !TELEGRAM_CHAT_ID_USERNAME_REGEX.matches(chat_id)) return false
+        return true
     }
 
     private fun uninstall_allowlist_valid(allowlist: List<String>): Boolean {
@@ -387,5 +470,9 @@ class PreflightValidator(
 
     companion object {
         private val PACKAGE_NAME_REGEX = Regex("^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+$")
+        private val TELEGRAM_BOT_TOKEN_REGEX = Regex("^\\d{6,}:[A-Za-z0-9_-]{20,}$")
+        private val TELEGRAM_CHAT_ID_NUMERIC_REGEX = Regex("^-?\\d{4,}$")
+        private val TELEGRAM_CHAT_ID_USERNAME_REGEX = Regex("^@[A-Za-z0-9_]{5,64}$")
+        private const val TELEGRAM_PREFLIGHT_TIMEOUT_SECONDS = 5
     }
 }

@@ -15,9 +15,11 @@ object MessageTemplateRenderer {
     fun render(
         context: Context,
         step_context: StepContext,
-        run_step_state: RunStepState
+        run_step_state: RunStepState,
+        template_override: String? = null
     ): String {
-        val template = step_context.profile.message_template.ifBlank { DEFAULT_TEMPLATE }
+        val template = template_override?.takeIf { it.isNotBlank() }
+            ?: step_context.profile.message_template.ifBlank { DEFAULT_TEMPLATE }
         val now = System.currentTimeMillis()
         val locale = context.resources.configuration.locales[0] ?: Locale.getDefault()
         val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", locale).format(Date(now))

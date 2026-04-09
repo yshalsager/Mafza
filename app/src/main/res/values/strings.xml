@@ -34,6 +34,7 @@
     <string name='profile_action_group_destructive'>Destructive</string>
     <string name='profile_action_group_finalize'>Finalize</string>
     <string name='profile_action_type_sms_recipient'>SMS Recipient</string>
+    <string name='profile_action_type_telegram_bot'>Telegram Bot</string>
     <string name='profile_action_type_message_binding'>Message App Binding</string>
     <string name='profile_action_type_uninstall_package'>Uninstall Package</string>
     <string name='profile_action_type_delete_target'>Delete Target</string>
@@ -47,6 +48,7 @@
     <string name='profile_action_row_summary_no_intent_set'>No intent set</string>
     <string name='profile_action_row_summary_no_path_set'>No path set</string>
     <string name='profile_action_row_summary_no_label_set'>No label set</string>
+    <string name='profile_action_row_summary_no_telegram_target'>No Telegram target set</string>
     <string name='profile_action_row_summary_self_uninstall'>Runs after all other branches complete</string>
     <string name='profile_action_row_menu_action'>Row actions</string>
     <string name='profile_action_row_edit_action'>Edit</string>
@@ -84,8 +86,10 @@
     <string name='profile_execution_preview_enabled'>enabled</string>
     <string name='profile_execution_preview_disabled'>disabled</string>
     <string name='profile_execution_preview_binding_item'>Message app: %1$s</string>
+    <string name='profile_execution_preview_telegram_item'>Telegram bot: %1$s</string>
     <string name='profile_execution_preview_intent_item'>Intent: %1$s</string>
     <string name='profile_execution_preview_unset_binding'>unset package</string>
+    <string name='profile_execution_preview_unset_telegram_bot'>unnamed bot action</string>
     <string name='profile_execution_preview_unset_intent'>unnamed intent</string>
     <string name='profile_advanced_show_action'>Show Advanced Controls</string>
     <string name='profile_advanced_hide_action'>Hide Advanced Controls</string>
@@ -142,6 +146,19 @@
     <string name='profile_message_binding_test_no_provider'>No provider registered</string>
     <string name='profile_message_binding_test_failed'>Preflight failed</string>
     <string name='profile_message_binding_test_unknown'>Unknown result</string>
+    <string name='profile_telegram_bot_label'>Label</string>
+    <string name='profile_telegram_bot_token_label'>Bot Token</string>
+    <string name='profile_telegram_bot_chat_id_label'>Chat ID / @username</string>
+    <string name='profile_telegram_bot_template_override_label'>Template Override (optional)</string>
+    <string name='profile_telegram_bot_timeout_label'>Step timeout (seconds)</string>
+    <string name='profile_telegram_bot_enabled_label'>Use this Telegram bot step</string>
+    <string name='profile_telegram_bot_test_action'>Test Bot</string>
+    <string name='profile_telegram_bot_test_result_prefix'>Test: </string>
+    <string name='profile_telegram_bot_test_ready'>Ready</string>
+    <string name='profile_telegram_bot_test_missing_config'>Bot token and chat target are required</string>
+    <string name='profile_telegram_bot_test_unavailable'>Bot is unavailable or unreachable</string>
+    <string name='profile_telegram_bot_test_failed'>Test failed</string>
+    <string name='profile_telegram_bot_test_unknown'>Unknown result</string>
     <string name='profile_action_types_title'>Action Types</string>
     <string name='profile_action_types_subtitle'>Choose which action categories are included in each run.</string>
     <string name='profile_action_types_help'>Category rules apply to all steps of that type.</string>
@@ -284,6 +301,9 @@
     <string name='profile_validation_shell_payload'>%1$d shell command(s) are missing command payload.</string>
     <string name='profile_validation_binding_package'>%1$d message binding(s) need a package name.</string>
     <string name='profile_validation_binding_order'>%1$d message binding policy order value(s) are invalid.</string>
+    <string name='profile_validation_telegram_config'>%1$d Telegram bot action(s) are missing token or chat target.</string>
+    <string name='profile_validation_telegram_timeout'>%1$d Telegram bot timeout value(s) are invalid.</string>
+    <string name='profile_validation_telegram_order'>%1$d Telegram bot policy order value(s) are invalid.</string>
     <string name='profile_validation_intent_step_timeout'>%1$d intent step timeout value(s) are invalid.</string>
     <string name='profile_validation_intent_order'>%1$d intent policy order value(s) are invalid.</string>
     <string name='preflight_title'>Preflight</string>

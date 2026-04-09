@@ -13,6 +13,7 @@ import com.yshalsager.mafza.core.contracts.ActionPolicyKeys
 
 internal fun build_profile_action_rows(
     sms_recipients: List<String>,
+    telegram_bot_actions: List<EditableTelegramBotAction>,
     message_app_bindings: List<EditableMessageBinding>,
     intent_actions: List<EditableIntentAction>,
     uninstall_packages: List<String>,
@@ -28,6 +29,14 @@ internal fun build_profile_action_rows(
             ui_order = order++,
             item_index = index,
             recipient = recipient
+        )
+    }
+    telegram_bot_actions.forEachIndexed { index, telegram_action ->
+        rows += TelegramBotActionRow(
+            row_id = "telegram:${telegram_action.id}",
+            ui_order = order++,
+            item_index = index,
+            telegram_bot_action = telegram_action
         )
     }
     message_app_bindings.forEachIndexed { index, binding ->
@@ -78,7 +87,10 @@ internal fun build_profile_action_rows(
 
 internal fun profile_action_types_for_group(group: ProfileActionGroup): List<ProfileActionRowType> {
     return when (group) {
-        ProfileActionGroup.COMMUNICATION -> listOf(ProfileActionRowType.SMS_RECIPIENT)
+        ProfileActionGroup.COMMUNICATION -> listOf(
+            ProfileActionRowType.SMS_RECIPIENT,
+            ProfileActionRowType.TELEGRAM_BOT_ACTION
+        )
         ProfileActionGroup.APP_INTENT -> listOf(
             ProfileActionRowType.MESSAGE_BINDING,
             ProfileActionRowType.INTENT_ACTION
@@ -104,6 +116,7 @@ internal fun profile_action_group_label_res(group: ProfileActionGroup): Int {
 internal fun profile_action_row_type_label_res(row_type: ProfileActionRowType): Int {
     return when (row_type) {
         ProfileActionRowType.SMS_RECIPIENT -> R.string.profile_action_type_sms_recipient
+        ProfileActionRowType.TELEGRAM_BOT_ACTION -> R.string.profile_action_type_telegram_bot
         ProfileActionRowType.MESSAGE_BINDING -> R.string.profile_action_type_message_binding
         ProfileActionRowType.INTENT_ACTION -> R.string.profile_action_type_launch_intent
         ProfileActionRowType.UNINSTALL_PACKAGE -> R.string.profile_action_type_uninstall_package
@@ -116,6 +129,7 @@ internal fun profile_action_row_type_label_res(row_type: ProfileActionRowType): 
 internal fun profile_action_row_lane_res(row_type: ProfileActionRowType): Int {
     return when (row_type) {
         ProfileActionRowType.SMS_RECIPIENT -> R.string.profile_action_lane_sms
+        ProfileActionRowType.TELEGRAM_BOT_ACTION -> R.string.profile_action_lane_notify
         ProfileActionRowType.MESSAGE_BINDING -> R.string.profile_action_lane_notify
         ProfileActionRowType.INTENT_ACTION -> R.string.profile_action_lane_notify
         ProfileActionRowType.UNINSTALL_PACKAGE -> R.string.profile_action_lane_destructive
@@ -129,6 +143,9 @@ internal fun profile_action_row_lane_res(row_type: ProfileActionRowType): Int {
 internal fun profile_action_row_summary(row: ProfileActionRow): String {
     return when (row) {
         is SmsRecipientActionRow -> row.recipient.trim().ifEmpty { stringResource(R.string.profile_action_row_summary_no_number_set) }
+        is TelegramBotActionRow -> row.telegram_bot_action.label.trim().ifEmpty {
+            row.telegram_bot_action.chat_id.trim().ifEmpty { stringResource(R.string.profile_action_row_summary_no_telegram_target) }
+        }
         is MessageBindingActionRow -> row.binding.package_name.trim().ifEmpty { stringResource(R.string.profile_action_row_summary_no_package_set) }
         is IntentActionRow -> row.intent_action.label.trim().ifEmpty {
             row.intent_action.intent_action.trim().ifEmpty { stringResource(R.string.profile_action_row_summary_no_intent_set) }
@@ -150,6 +167,7 @@ internal fun profile_action_row_summary(row: ProfileActionRow): String {
 internal fun action_row_current_index(row: ProfileActionRow): Int {
     return when (row) {
         is SmsRecipientActionRow -> row.item_index
+        is TelegramBotActionRow -> row.item_index
         is MessageBindingActionRow -> row.item_index
         is IntentActionRow -> row.item_index
         is UninstallPackageActionRow -> row.item_index
@@ -162,6 +180,7 @@ internal fun action_row_current_index(row: ProfileActionRow): Int {
 internal fun action_row_last_index(
     row: ProfileActionRow,
     sms_recipients: List<String>,
+    telegram_bot_actions: List<EditableTelegramBotAction>,
     message_app_bindings: List<EditableMessageBinding>,
     intent_actions: List<EditableIntentAction>,
     uninstall_packages: List<String>,
@@ -170,6 +189,7 @@ internal fun action_row_last_index(
 ): Int {
     return when (row) {
         is SmsRecipientActionRow -> sms_recipients.lastIndex
+        is TelegramBotActionRow -> telegram_bot_actions.lastIndex
         is MessageBindingActionRow -> message_app_bindings.lastIndex
         is IntentActionRow -> intent_actions.lastIndex
         is UninstallPackageActionRow -> uninstall_packages.lastIndex
@@ -237,6 +257,7 @@ internal fun move_action_policy_row(
 internal fun action_type_label_res(action_id: ActionId): Int {
     return when (action_id) {
         ActionId.SEND_SMS -> R.string.profile_action_type_send_sms
+        ActionId.NOTIFY_TELEGRAM_BOT -> R.string.profile_action_type_telegram_bot
         ActionId.UNINSTALL_APPS -> R.string.profile_action_type_uninstall_apps
         ActionId.DELETE_PATHS -> R.string.profile_action_type_delete_paths
         ActionId.ADVANCED_SHELL_COMMANDS -> R.string.profile_action_type_advanced_shell
@@ -293,5 +314,15 @@ internal fun message_binding_test_status_res(status: String): Int {
         "no_provider" -> R.string.profile_message_binding_test_no_provider
         "preflight_failed" -> R.string.profile_message_binding_test_failed
         else -> R.string.profile_message_binding_test_unknown
+    }
+}
+
+internal fun telegram_bot_test_status_res(status: String): Int {
+    return when (status) {
+        "ready" -> R.string.profile_telegram_bot_test_ready
+        "missing_config" -> R.string.profile_telegram_bot_test_missing_config
+        "unavailable" -> R.string.profile_telegram_bot_test_unavailable
+        "test_failed" -> R.string.profile_telegram_bot_test_failed
+        else -> R.string.profile_telegram_bot_test_unknown
     }
 }

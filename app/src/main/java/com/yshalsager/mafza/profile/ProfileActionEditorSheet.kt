@@ -27,7 +27,10 @@ import com.yshalsager.mafza.R
 import com.yshalsager.mafza.core.contracts.ActionBinding
 import com.yshalsager.mafza.core.contracts.ActionId
 import com.yshalsager.mafza.emergency.providers.ActionProviderRegistry
+import com.yshalsager.mafza.emergency.telegram.RealTelegramBotClient
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,6 +40,7 @@ internal fun ProfileActionEditorSheet(
     editing_action_row: ProfileActionRow?,
     sms_recipients: List<String>,
     sms_contact_picker_error_res_id: Int?,
+    telegram_bot_actions: List<EditableTelegramBotAction>,
     message_app_bindings: List<EditableMessageBinding>,
     intent_actions: List<EditableIntentAction>,
     uninstall_packages: List<String>,
@@ -49,6 +53,7 @@ internal fun ProfileActionEditorSheet(
     on_update_sms_recipients: (List<String>) -> Unit,
     on_update_sms_contact_picker_error: (Int?) -> Unit,
     on_pick_sms_contact: (Int) -> Unit,
+    on_update_telegram_bot_actions: (List<EditableTelegramBotAction>) -> Unit,
     on_update_message_app_bindings: (List<EditableMessageBinding>) -> Unit,
     on_open_message_binding_picker: (Int) -> Unit,
     on_update_intent_actions: (List<EditableIntentAction>) -> Unit,
@@ -71,7 +76,9 @@ internal fun ProfileActionEditorSheet(
     }
     var show_advanced_execution_rule by remember(editing_action_row.row_id) { mutableStateOf(false) }
     var message_binding_test_status by remember(editing_action_row.row_id, editing_message_binding) { mutableStateOf<String?>(null) }
+    var telegram_bot_test_status by remember(editing_action_row.row_id) { mutableStateOf<String?>(null) }
     var intent_action_test_status by remember(editing_action_row.row_id) { mutableStateOf<String?>(null) }
+    val telegram_bot_client = remember { RealTelegramBotClient() }
 
     ModalBottomSheet(onDismissRequest = on_dismiss) {
         Column(
@@ -99,6 +106,44 @@ internal fun ProfileActionEditorSheet(
                     on_toggle_advanced = { show_advanced_execution_rule = !show_advanced_execution_rule },
                     action_rule_for = action_rule_for,
                     on_update_action_rule = on_update_action_rule,
+                    on_mark_profile_dirty = on_mark_profile_dirty
+                )
+                is TelegramBotActionRow -> TelegramBotActionEditorSection(
+                    row = editing_action_row,
+                    telegram_bot_actions = telegram_bot_actions,
+                    on_update_telegram_bot_actions = on_update_telegram_bot_actions,
+                    test_status = telegram_bot_test_status,
+                    on_test_bot = {
+                        val action = telegram_bot_actions.getOrNull(editing_action_row.item_index)
+                        if (action == null) {
+                            telegram_bot_test_status = "test_failed"
+                            return@TelegramBotActionEditorSection
+                        }
+                        val token = action.bot_token.trim()
+                        val chat_id = action.chat_id.trim()
+                        if (token.isEmpty() || chat_id.isEmpty()) {
+                            telegram_bot_test_status = "missing_config"
+                            return@TelegramBotActionEditorSection
+                        }
+                        app_scope.launch {
+                            val result = runCatching {
+                                withContext(Dispatchers.IO) {
+                                    telegram_bot_client.check_bot(
+                                        bot_token = token,
+                                        timeout_seconds = 5
+                                    )
+                                }
+                            }.getOrNull()
+                            telegram_bot_test_status = when {
+                                result == null -> "test_failed"
+                                result.ready -> "ready"
+                                else -> "error:${result.details ?: "telegram_unavailable"}"
+                            }
+                        }
+                    },
+                    on_clear_test_status = { telegram_bot_test_status = null },
+                    show_advanced_execution_rule = show_advanced_execution_rule,
+                    on_toggle_advanced = { show_advanced_execution_rule = !show_advanced_execution_rule },
                     on_mark_profile_dirty = on_mark_profile_dirty
                 )
                 is MessageBindingActionRow -> MessageBindingEditorSection(

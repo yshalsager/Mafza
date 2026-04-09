@@ -14,6 +14,9 @@ internal data class ProfileValidationResult(
     val first_invalid_shell_payload_index: Int,
     val first_invalid_binding_package_index: Int,
     val first_invalid_binding_policy_order_index: Int,
+    val first_invalid_telegram_config_index: Int,
+    val first_invalid_telegram_timeout_index: Int,
+    val first_invalid_telegram_policy_order_index: Int,
     val first_invalid_intent_timeout_index: Int,
     val first_invalid_intent_policy_order_index: Int
 )
@@ -35,6 +38,7 @@ internal fun build_profile_validation_result(
     uninstall_packages: List<String>,
     delete_targets: List<EditableDeleteTarget>,
     advanced_shell_commands: List<EditableShellCommand>,
+    telegram_bot_actions: List<EditableTelegramBotAction>,
     message_app_bindings: List<EditableMessageBinding>,
     intent_actions: List<EditableIntentAction>
 ): ProfileValidationResult {
@@ -57,6 +61,16 @@ internal fun build_profile_validation_result(
     val invalid_binding_policy_order_count = message_app_bindings.count { binding ->
         binding.policy_mode == ProfilePolicyMode.OVERRIDE &&
             !is_int_in_range(binding.policy_execution_order, PROFILE_MIN_POLICY_ORDER, PROFILE_MAX_POLICY_ORDER)
+    }
+    val invalid_telegram_config_count = telegram_bot_actions.count { action ->
+        action.enabled && (action.bot_token.trim().isEmpty() || action.chat_id.trim().isEmpty())
+    }
+    val invalid_telegram_timeout_count = telegram_bot_actions.count { action ->
+        !is_int_in_range(action.timeout_seconds, PROFILE_MIN_STEP_TIMEOUT_SECONDS, PROFILE_MAX_TELEGRAM_TIMEOUT_SECONDS)
+    }
+    val invalid_telegram_policy_order_count = telegram_bot_actions.count { action ->
+        action.policy_mode == ProfilePolicyMode.OVERRIDE &&
+            !is_int_in_range(action.policy_execution_order, PROFILE_MIN_POLICY_ORDER, PROFILE_MAX_POLICY_ORDER)
     }
     val invalid_intent_timeout_count = intent_actions.count { intent_action ->
         !is_int_in_range(intent_action.timeout_seconds, PROFILE_MIN_STEP_TIMEOUT_SECONDS, PROFILE_MAX_INTENT_TIMEOUT_SECONDS)
@@ -85,6 +99,16 @@ internal fun build_profile_validation_result(
     val first_invalid_binding_policy_order_index = message_app_bindings.indexOfFirst { binding ->
         binding.policy_mode == ProfilePolicyMode.OVERRIDE &&
             !is_int_in_range(binding.policy_execution_order, PROFILE_MIN_POLICY_ORDER, PROFILE_MAX_POLICY_ORDER)
+    }
+    val first_invalid_telegram_config_index = telegram_bot_actions.indexOfFirst { action ->
+        action.enabled && (action.bot_token.trim().isEmpty() || action.chat_id.trim().isEmpty())
+    }
+    val first_invalid_telegram_timeout_index = telegram_bot_actions.indexOfFirst { action ->
+        !is_int_in_range(action.timeout_seconds, PROFILE_MIN_STEP_TIMEOUT_SECONDS, PROFILE_MAX_TELEGRAM_TIMEOUT_SECONDS)
+    }
+    val first_invalid_telegram_policy_order_index = telegram_bot_actions.indexOfFirst { action ->
+        action.policy_mode == ProfilePolicyMode.OVERRIDE &&
+            !is_int_in_range(action.policy_execution_order, PROFILE_MIN_POLICY_ORDER, PROFILE_MAX_POLICY_ORDER)
     }
     val first_invalid_intent_timeout_index = intent_actions.indexOfFirst { intent_action ->
         !is_int_in_range(intent_action.timeout_seconds, PROFILE_MIN_STEP_TIMEOUT_SECONDS, PROFILE_MAX_INTENT_TIMEOUT_SECONDS)
@@ -207,6 +231,30 @@ internal fun build_profile_validation_result(
                 )
             )
         }
+        if (invalid_telegram_config_count > 0) {
+            add(
+                ProfileValidationIssue(
+                    key = ProfileValidationIssueKey.TELEGRAM_CONFIG_INVALID,
+                    message = stringResource(R.string.profile_validation_telegram_config, invalid_telegram_config_count)
+                )
+            )
+        }
+        if (invalid_telegram_timeout_count > 0) {
+            add(
+                ProfileValidationIssue(
+                    key = ProfileValidationIssueKey.TELEGRAM_TIMEOUT_INVALID,
+                    message = stringResource(R.string.profile_validation_telegram_timeout, invalid_telegram_timeout_count)
+                )
+            )
+        }
+        if (invalid_telegram_policy_order_count > 0) {
+            add(
+                ProfileValidationIssue(
+                    key = ProfileValidationIssueKey.TELEGRAM_ORDER_INVALID,
+                    message = stringResource(R.string.profile_validation_telegram_order, invalid_telegram_policy_order_count)
+                )
+            )
+        }
         if (invalid_intent_timeout_count > 0) {
             add(
                 ProfileValidationIssue(
@@ -233,6 +281,9 @@ internal fun build_profile_validation_result(
         first_invalid_shell_payload_index = first_invalid_shell_payload_index,
         first_invalid_binding_package_index = first_invalid_binding_package_index,
         first_invalid_binding_policy_order_index = first_invalid_binding_policy_order_index,
+        first_invalid_telegram_config_index = first_invalid_telegram_config_index,
+        first_invalid_telegram_timeout_index = first_invalid_telegram_timeout_index,
+        first_invalid_telegram_policy_order_index = first_invalid_telegram_policy_order_index,
         first_invalid_intent_timeout_index = first_invalid_intent_timeout_index,
         first_invalid_intent_policy_order_index = first_invalid_intent_policy_order_index
     )

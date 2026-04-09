@@ -25,6 +25,7 @@ internal fun ProfileContentList(
     modifier: Modifier,
     profile_list_state: LazyListState,
     action_policy_rows: List<EditableActionPolicyRow>,
+    telegram_bot_actions: List<EditableTelegramBotAction>,
     message_app_bindings: List<EditableMessageBinding>,
     intent_actions: List<EditableIntentAction>,
     show_reorder_helper: Boolean,
@@ -98,6 +99,7 @@ internal fun ProfileContentList(
         item {
             ActionExecutionPreviewCard(
                 action_policy_rows = action_policy_rows,
+                telegram_bot_actions = telegram_bot_actions,
                 message_app_bindings = message_app_bindings,
                 intent_actions = intent_actions
             )
@@ -135,6 +137,7 @@ internal fun ProfileContentList(
                         val last_index = action_row_last_index(
                             row = row,
                             sms_recipients = sms_recipients,
+                            telegram_bot_actions = telegram_bot_actions,
                             message_app_bindings = message_app_bindings,
                             intent_actions = intent_actions,
                             uninstall_packages = uninstall_packages,

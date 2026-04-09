@@ -7,6 +7,7 @@ import com.yshalsager.mafza.core.contracts.ActionPolicyKeys
 import com.yshalsager.mafza.core.contracts.DeleteTarget
 import com.yshalsager.mafza.core.contracts.IntentActionSpec
 import com.yshalsager.mafza.core.contracts.ShellCommandSpec
+import com.yshalsager.mafza.core.contracts.TelegramBotActionSpec
 import java.util.UUID
 
 internal fun to_editable_intent_action(
@@ -73,6 +74,68 @@ internal fun move_intent_action(
     val moving_intent_action = mutable_intent_actions.removeAt(from_index)
     mutable_intent_actions.add(to_index, moving_intent_action)
     return normalize_intent_action_orders(mutable_intent_actions)
+}
+
+internal fun to_editable_telegram_bot_action(
+    telegram_bot_action: TelegramBotActionSpec,
+    action_policies: List<ActionPolicy>,
+    default_execution_order: Int
+): EditableTelegramBotAction {
+    val normalized_id = telegram_bot_action.id.trim().ifEmpty { UUID.randomUUID().toString() }
+    val telegram_policy_key = ActionPolicyKeys.for_telegram_bot(normalized_id)
+    val direct_policy = action_policies.firstOrNull { it.policy_key == telegram_policy_key }
+    val resolved_policy = direct_policy
+        ?: action_policies.firstOrNull { it.policy_key == ActionPolicyKeys.for_action(ActionId.NOTIFY_TELEGRAM_BOT) }
+
+    return EditableTelegramBotAction(
+        id = normalized_id,
+        label = telegram_bot_action.label,
+        bot_token = telegram_bot_action.bot_token,
+        chat_id = telegram_bot_action.chat_id,
+        template_override = telegram_bot_action.template_override.orEmpty(),
+        timeout_seconds = telegram_bot_action.timeout_seconds.toString(),
+        enabled = telegram_bot_action.enabled,
+        policy_enabled = resolved_policy?.enabled ?: true,
+        policy_required = resolved_policy?.required ?: false,
+        policy_continue_on_failure = resolved_policy?.continue_on_failure ?: true,
+        policy_execution_order = (resolved_policy?.execution_order ?: default_execution_order).toString(),
+        policy_mode = if (direct_policy != null) ProfilePolicyMode.OVERRIDE else ProfilePolicyMode.INHERIT_DEFAULT
+    )
+}
+
+internal fun create_empty_telegram_bot_action(default_execution_order: Int): EditableTelegramBotAction {
+    return EditableTelegramBotAction(
+        id = UUID.randomUUID().toString(),
+        label = "",
+        bot_token = "",
+        chat_id = "",
+        template_override = "",
+        timeout_seconds = "20",
+        enabled = true,
+        policy_enabled = true,
+        policy_required = false,
+        policy_continue_on_failure = true,
+        policy_execution_order = default_execution_order.toString(),
+        policy_mode = ProfilePolicyMode.INHERIT_DEFAULT
+    )
+}
+
+internal fun normalize_telegram_bot_action_orders(actions: List<EditableTelegramBotAction>): List<EditableTelegramBotAction> {
+    return actions.mapIndexed { index, action ->
+        action.copy(policy_execution_order = (index + 1).toString())
+    }
+}
+
+internal fun move_telegram_bot_action(
+    actions: List<EditableTelegramBotAction>,
+    from_index: Int,
+    to_index: Int
+): List<EditableTelegramBotAction> {
+    if (from_index !in actions.indices || to_index !in actions.indices) return actions
+    val mutable_actions = actions.toMutableList()
+    val moving_action = mutable_actions.removeAt(from_index)
+    mutable_actions.add(to_index, moving_action)
+    return normalize_telegram_bot_action_orders(mutable_actions)
 }
 
 internal fun normalize_message_binding_orders(bindings: List<EditableMessageBinding>): List<EditableMessageBinding> {
@@ -213,6 +276,25 @@ internal fun build_profile_intent_actions(intent_actions: List<EditableIntentAct
     }
 }
 
+internal fun build_profile_telegram_bot_actions(actions: List<EditableTelegramBotAction>): List<TelegramBotActionSpec> {
+    return actions.map { action ->
+        TelegramBotActionSpec(
+            id = action.id.trim().ifEmpty { UUID.randomUUID().toString() },
+            label = action.label.trim(),
+            bot_token = action.bot_token.trim(),
+            chat_id = action.chat_id.trim(),
+            template_override = action.template_override.trim().ifEmpty { null },
+            timeout_seconds = parse_int_or_fallback(
+                value = action.timeout_seconds,
+                fallback = 20,
+                min_value = PROFILE_MIN_STEP_TIMEOUT_SECONDS,
+                max_value = PROFILE_MAX_TELEGRAM_TIMEOUT_SECONDS
+            ),
+            enabled = action.enabled
+        )
+    }
+}
+
 internal fun build_profile_delete_targets(delete_targets: List<EditableDeleteTarget>): List<DeleteTarget> {
     return delete_targets
         .map { target ->
@@ -253,15 +335,23 @@ internal fun build_profile_action_policies(
     message_app_bindings: List<EditableMessageBinding>,
     action_policy_rows: List<EditableActionPolicyRow>,
     removed_action_policy_map: Map<String, ActionId>,
+    telegram_bot_actions: List<EditableTelegramBotAction>,
+    removed_telegram_policy_keys: Set<String>,
     intent_actions: List<EditableIntentAction>,
     removed_intent_policy_keys: Set<String>
 ): List<ActionPolicy> {
     val managed_action_policy_keys = manageable_action_ids().map(ActionPolicyKeys::for_action).toSet()
     val notify_default_policy_key = ActionPolicyKeys.for_action(ActionId.NOTIFY_MESSAGE_APP)
+    val telegram_default_policy_key = ActionPolicyKeys.for_action(ActionId.NOTIFY_TELEGRAM_BOT)
     val intent_default_policy_key = ActionPolicyKeys.for_action(ActionId.LAUNCH_INTENT)
-    val reserved_default_policy_keys = setOf(notify_default_policy_key, intent_default_policy_key)
+    val reserved_default_policy_keys = setOf(
+        notify_default_policy_key,
+        telegram_default_policy_key,
+        intent_default_policy_key
+    )
     val kept_policies = existing_policies.filterNot { policy ->
         policy.policy_key.startsWith("binding:${ActionId.NOTIFY_MESSAGE_APP.name.lowercase()}:") ||
+            policy.policy_key.startsWith("telegram:") ||
             policy.policy_key in managed_action_policy_keys ||
             policy.policy_key in reserved_default_policy_keys ||
             policy.policy_key.startsWith("intent:")
@@ -327,6 +417,23 @@ internal fun build_profile_action_policies(
                 )
             )
         }
+    val telegram_policies = telegram_bot_actions
+        .filter { it.policy_mode == ProfilePolicyMode.OVERRIDE }
+        .mapIndexed { index, telegram_action ->
+            ActionPolicy(
+                action_id = ActionId.NOTIFY_TELEGRAM_BOT,
+                policy_key = ActionPolicyKeys.for_telegram_bot(telegram_action.id),
+                enabled = telegram_action.policy_enabled,
+                required = telegram_action.policy_required,
+                continue_on_failure = telegram_action.policy_continue_on_failure,
+                execution_order = parse_int_or_fallback(
+                    value = telegram_action.policy_execution_order,
+                    fallback = index + 1,
+                    min_value = PROFILE_MIN_POLICY_ORDER,
+                    max_value = PROFILE_MAX_POLICY_ORDER
+                )
+            )
+        }
     val notify_default_policy = existing_policies.firstOrNull { policy ->
         policy.policy_key == notify_default_policy_key
     } ?: ActionPolicy(
@@ -336,6 +443,16 @@ internal fun build_profile_action_policies(
         required = false,
         continue_on_failure = true,
         execution_order = 100
+    )
+    val telegram_default_policy = existing_policies.firstOrNull { policy ->
+        policy.policy_key == telegram_default_policy_key
+    } ?: ActionPolicy(
+        action_id = ActionId.NOTIFY_TELEGRAM_BOT,
+        policy_key = telegram_default_policy_key,
+        enabled = true,
+        required = false,
+        continue_on_failure = true,
+        execution_order = 110
     )
     val intent_default_policy = existing_policies.firstOrNull { policy ->
         policy.policy_key == intent_default_policy_key
@@ -362,12 +479,30 @@ internal fun build_profile_action_policies(
                 execution_order = 20_000 + index
             )
         }
+    val removed_telegram_policies = removed_telegram_policy_keys
+        .filter { removed_telegram_policy_key ->
+            telegram_policies.none { telegram_policy -> telegram_policy.policy_key == removed_telegram_policy_key }
+        }
+        .sorted()
+        .mapIndexed { index, removed_telegram_policy_key ->
+            ActionPolicy(
+                action_id = ActionId.NOTIFY_TELEGRAM_BOT,
+                policy_key = removed_telegram_policy_key,
+                enabled = false,
+                required = false,
+                continue_on_failure = true,
+                execution_order = 19_000 + index
+            )
+        }
     return kept_policies +
         action_type_policies +
         removed_action_type_policies +
         notify_default_policy +
+        telegram_default_policy +
         intent_default_policy +
         binding_policies +
+        telegram_policies +
+        removed_telegram_policies +
         intent_policies +
         removed_intent_policies
 }

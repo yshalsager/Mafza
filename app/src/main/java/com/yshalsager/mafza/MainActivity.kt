@@ -24,6 +24,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -46,6 +47,7 @@ import com.yshalsager.mafza.core.data.profile.ProfileDataStoreFactory
 import com.yshalsager.mafza.emergency.providers.ActionProviderRegistry
 import com.yshalsager.mafza.emergency.providers.IntentMessageAppProvider
 import com.yshalsager.mafza.preflight.PreflightValidator
+import com.yshalsager.mafza.preflight.PreflightReport
 import com.yshalsager.mafza.preflight.requires_shizuku_for_live_destructive_actions
 import com.yshalsager.mafza.profile.AppRoute
 import com.yshalsager.mafza.profile.CancelWindowOverlay
@@ -55,8 +57,10 @@ import com.yshalsager.mafza.profile.set_destructive_actions_enabled
 import com.yshalsager.mafza.profile.start_emergency_run
 import com.yshalsager.mafza.shizuku.ShizukuPermissionManager
 import com.yshalsager.mafza.ui.theme.MafzaTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private const val MIN_CANCEL_WINDOW_SECONDS = 1
 private const val MAX_CANCEL_WINDOW_SECONDS = 30
@@ -129,11 +133,25 @@ private fun MafzaApp(
             action_provider_registry = action_provider_registry
         )
     }
-    val preflight_report = remember(profile, shizuku_state, preflight_refresh_nonce) {
-        preflight_validator.validate(
-            profile = profile,
-            shizuku_permission_state = shizuku_state
-        )
+    val preflight_report by produceState(
+        initialValue = PreflightReport(
+            live_ready = false,
+            dry_run_ready = false,
+            live_blocking_issues = emptyList(),
+            dry_run_blocking_issues = emptyList(),
+            warnings = emptyList()
+        ),
+        key1 = profile,
+        key2 = shizuku_state,
+        key3 = preflight_refresh_nonce
+    ) {
+        value = withContext(Dispatchers.IO) {
+            preflight_validator.validate(
+                profile = profile,
+                shizuku_permission_state = shizuku_state,
+                perform_telegram_reachability_checks = true
+            )
+        }
     }
 
     val nav_controller = rememberNavController()

@@ -33,12 +33,14 @@ internal fun build_profile_editor_signature(
     sms_timeout_input: String,
     intent_timeout_input: String,
     action_policy_rows: List<EditableActionPolicyRow>,
+    telegram_bot_actions: List<EditableTelegramBotAction>,
     message_app_bindings: List<EditableMessageBinding>,
     intent_actions: List<EditableIntentAction>,
     uninstall_packages: List<String>,
     delete_targets: List<EditableDeleteTarget>,
     advanced_shell_commands: List<EditableShellCommand>,
     removed_action_policy_map: Map<String, ActionId>,
+    removed_telegram_policy_keys: Set<String>,
     removed_intent_policy_keys: Set<String>,
     destructive_actions_enabled: Boolean,
     triggers_enabled: Boolean,
@@ -47,6 +49,7 @@ internal fun build_profile_editor_signature(
     val removed_action_policy_signature = removed_action_policy_map.entries
         .sortedBy { it.key }
         .joinToString("|") { "${it.key}:${it.value.name}" }
+    val removed_telegram_policy_signature = removed_telegram_policy_keys.sorted().joinToString("|")
     val removed_intent_policy_signature = removed_intent_policy_keys.sorted().joinToString("|")
 
     return listOf(
@@ -58,12 +61,14 @@ internal fun build_profile_editor_signature(
         sms_timeout_input,
         intent_timeout_input,
         action_policy_rows.joinToString("\u001e"),
+        telegram_bot_actions.joinToString("\u001e"),
         message_app_bindings.joinToString("\u001e"),
         intent_actions.joinToString("\u001e"),
         uninstall_packages.joinToString("\u001f"),
         delete_targets.joinToString("\u001e"),
         advanced_shell_commands.joinToString("\u001e"),
         removed_action_policy_signature,
+        removed_telegram_policy_signature,
         removed_intent_policy_signature,
         destructive_actions_enabled.toString(),
         triggers_enabled.toString(),
@@ -88,6 +93,13 @@ internal fun build_profile_editor_signature_from_profile(profile: EmergencyProfi
             default_execution_order = index + 1
         )
     }
+    val editable_telegram_bot_actions = profile.telegram_bot_actions.mapIndexed { index, telegram_action ->
+        to_editable_telegram_bot_action(
+            telegram_bot_action = telegram_action,
+            action_policies = profile.action_policies,
+            default_execution_order = index + 1
+        )
+    }
 
     return build_profile_editor_signature(
         sms_recipients = profile.sms_recipients,
@@ -98,12 +110,14 @@ internal fun build_profile_editor_signature_from_profile(profile: EmergencyProfi
         sms_timeout_input = profile.sms_timeout_seconds.toString(),
         intent_timeout_input = profile.intent_timeout_seconds.toString(),
         action_policy_rows = extract_editable_action_policy_rows(profile.action_policies),
+        telegram_bot_actions = editable_telegram_bot_actions,
         message_app_bindings = editable_message_bindings,
         intent_actions = editable_intent_actions,
         uninstall_packages = profile.uninstall_allowlist,
         delete_targets = profile.delete_allowlist.map(::to_editable_delete_target),
         advanced_shell_commands = profile.advanced_shell_commands.map(::to_editable_shell_command),
         removed_action_policy_map = emptyMap(),
+        removed_telegram_policy_keys = emptySet(),
         removed_intent_policy_keys = emptySet(),
         destructive_actions_enabled = profile.destructive_actions_enabled,
         triggers_enabled = profile.triggers_enabled,

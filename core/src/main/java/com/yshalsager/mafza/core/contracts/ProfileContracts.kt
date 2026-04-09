@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 enum class ActionId {
     SEND_SMS,
     NOTIFY_MESSAGE_APP,
+    NOTIFY_TELEGRAM_BOT,
     LAUNCH_INTENT,
     UNINSTALL_APPS,
     DELETE_PATHS,
@@ -68,6 +69,17 @@ data class IntentActionSpec(
 )
 
 @Serializable
+data class TelegramBotActionSpec(
+    val id: String,
+    val label: String,
+    val bot_token: String,
+    val chat_id: String,
+    val template_override: String? = null,
+    val timeout_seconds: Int = 20,
+    val enabled: Boolean
+)
+
+@Serializable
 data class EmergencyProfile(
     val sms_recipients: List<String> = emptyList(),
     val notify_target: String = "",
@@ -83,6 +95,7 @@ data class EmergencyProfile(
     val action_bindings: List<ActionBinding> = emptyList(),
     val action_policies: List<ActionPolicy> = emptyList(),
     val intent_actions: List<IntentActionSpec> = emptyList(),
+    val telegram_bot_actions: List<TelegramBotActionSpec> = emptyList(),
     val advanced_shell_commands: List<ShellCommandSpec> = emptyList(),
     val destructive_actions_enabled: Boolean = false,
     val triggers_enabled: Boolean = true
@@ -98,4 +111,5 @@ object ActionPolicyKeys {
     }
 
     fun for_intent(intent_action_id: String): String = "intent:${intent_action_id.trim().lowercase()}"
+    fun for_telegram_bot(telegram_action_id: String): String = "telegram:${telegram_action_id.trim().lowercase()}"
 }

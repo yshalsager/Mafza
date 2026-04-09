@@ -16,11 +16,13 @@ import com.yshalsager.mafza.R
 @Composable
 internal fun ActionExecutionPreviewCard(
     action_policy_rows: List<EditableActionPolicyRow>,
+    telegram_bot_actions: List<EditableTelegramBotAction>,
     message_app_bindings: List<EditableMessageBinding>,
     intent_actions: List<EditableIntentAction>
 ) {
     val preview_items = build_execution_preview_items(
         action_policy_rows = action_policy_rows,
+        telegram_bot_actions = telegram_bot_actions,
         message_app_bindings = message_app_bindings,
         intent_actions = intent_actions
     )
@@ -65,6 +67,7 @@ internal fun ActionExecutionPreviewCard(
 @Composable
 private fun build_execution_preview_items(
     action_policy_rows: List<EditableActionPolicyRow>,
+    telegram_bot_actions: List<EditableTelegramBotAction>,
     message_app_bindings: List<EditableMessageBinding>,
     intent_actions: List<EditableIntentAction>
 ): List<ExecutionPreviewItem> {
@@ -100,6 +103,30 @@ private fun build_execution_preview_items(
         )
     }
 
+    val telegram_items = telegram_bot_actions.mapIndexed { index, action ->
+        val action_label = action.label.trim()
+            .ifEmpty { action.chat_id.trim() }
+            .ifEmpty { stringResource(R.string.profile_execution_preview_unset_telegram_bot) }
+        ExecutionPreviewItem(
+            execution_order = if (action.policy_mode == ProfilePolicyMode.OVERRIDE) {
+                parse_int_or_fallback(
+                    value = action.policy_execution_order,
+                    fallback = index + 1,
+                    min_value = PROFILE_MIN_POLICY_ORDER,
+                    max_value = PROFILE_MAX_POLICY_ORDER
+                )
+            } else {
+                index + 1
+            },
+            label = stringResource(R.string.profile_execution_preview_telegram_item, action_label),
+            enabled = if (action.policy_mode == ProfilePolicyMode.OVERRIDE) {
+                action.policy_enabled
+            } else {
+                action.enabled
+            }
+        )
+    }
+
     val intent_items = intent_actions.mapIndexed { index, intent_action ->
         val intent_label = intent_action.label.trim()
             .ifEmpty { intent_action.intent_action.trim() }
@@ -124,7 +151,7 @@ private fun build_execution_preview_items(
         )
     }
 
-    return (action_items + binding_items + intent_items)
+    return (action_items + telegram_items + binding_items + intent_items)
         .sortedWith(
             compareBy<ExecutionPreviewItem> { it.execution_order }
                 .thenBy { it.label.lowercase() }

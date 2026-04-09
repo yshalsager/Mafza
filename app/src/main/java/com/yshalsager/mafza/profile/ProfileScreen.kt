@@ -65,6 +65,17 @@ internal fun ProfileScreen(
                 }
         )
     }
+    var telegram_bot_actions by remember(profile) {
+        mutableStateOf(
+            profile.telegram_bot_actions.mapIndexed { index, telegram_action ->
+                to_editable_telegram_bot_action(
+                    telegram_bot_action = telegram_action,
+                    action_policies = profile.action_policies,
+                    default_execution_order = index + 1
+                )
+            }
+        )
+    }
     var intent_actions by remember(profile) {
         mutableStateOf(
             profile.intent_actions.mapIndexed { index, intent_action ->
@@ -84,6 +95,9 @@ internal fun ProfileScreen(
     }
     var advanced_shell_commands by remember(profile) {
         mutableStateOf(profile.advanced_shell_commands.map(::to_editable_shell_command))
+    }
+    var removed_telegram_policy_keys by remember(profile) {
+        mutableStateOf(setOf<String>())
     }
     var removed_intent_policy_keys by remember(profile) {
         mutableStateOf(setOf<String>())
@@ -304,6 +318,7 @@ internal fun ProfileScreen(
         uninstall_packages = uninstall_packages,
         delete_targets = delete_targets,
         advanced_shell_commands = advanced_shell_commands,
+        telegram_bot_actions = telegram_bot_actions,
         message_app_bindings = message_app_bindings,
         intent_actions = intent_actions
     )
@@ -314,6 +329,9 @@ internal fun ProfileScreen(
     val first_invalid_shell_payload_index = validation_result.first_invalid_shell_payload_index
     val first_invalid_binding_package_index = validation_result.first_invalid_binding_package_index
     val first_invalid_binding_policy_order_index = validation_result.first_invalid_binding_policy_order_index
+    val first_invalid_telegram_config_index = validation_result.first_invalid_telegram_config_index
+    val first_invalid_telegram_timeout_index = validation_result.first_invalid_telegram_timeout_index
+    val first_invalid_telegram_policy_order_index = validation_result.first_invalid_telegram_policy_order_index
     val first_invalid_intent_timeout_index = validation_result.first_invalid_intent_timeout_index
     val first_invalid_intent_policy_order_index = validation_result.first_invalid_intent_policy_order_index
     val can_save = validation_issues.isEmpty() && !is_saving
@@ -326,12 +344,14 @@ internal fun ProfileScreen(
         sms_timeout_input = sms_timeout_input,
         intent_timeout_input = intent_timeout_input,
         action_policy_rows = action_policy_rows,
+        telegram_bot_actions = telegram_bot_actions,
         message_app_bindings = message_app_bindings,
         intent_actions = intent_actions,
         uninstall_packages = uninstall_packages,
         delete_targets = delete_targets,
         advanced_shell_commands = advanced_shell_commands,
         removed_action_policy_map = removed_action_policy_map,
+        removed_telegram_policy_keys = removed_telegram_policy_keys,
         removed_intent_policy_keys = removed_intent_policy_keys,
         destructive_actions_enabled = destructive_actions_enabled,
         triggers_enabled = triggers_enabled,
@@ -383,6 +403,7 @@ internal fun ProfileScreen(
     }
     val action_rows = build_profile_action_rows(
         sms_recipients = sms_recipients,
+        telegram_bot_actions = telegram_bot_actions,
         message_app_bindings = message_app_bindings,
         intent_actions = intent_actions,
         uninstall_packages = uninstall_packages,
@@ -507,6 +528,27 @@ internal fun ProfileScreen(
                     editing_action_row_id = "binding:${target_binding.binding_id}"
                 }
             }
+            ProfileValidationIssueKey.TELEGRAM_CONFIG_INVALID -> {
+                group_expansion[ProfileActionGroup.COMMUNICATION] = true
+                val target_action = telegram_bot_actions.getOrNull(first_invalid_telegram_config_index)
+                if (target_action != null) {
+                    editing_action_row_id = "telegram:${target_action.id}"
+                }
+            }
+            ProfileValidationIssueKey.TELEGRAM_TIMEOUT_INVALID -> {
+                group_expansion[ProfileActionGroup.COMMUNICATION] = true
+                val target_action = telegram_bot_actions.getOrNull(first_invalid_telegram_timeout_index)
+                if (target_action != null) {
+                    editing_action_row_id = "telegram:${target_action.id}"
+                }
+            }
+            ProfileValidationIssueKey.TELEGRAM_ORDER_INVALID -> {
+                group_expansion[ProfileActionGroup.COMMUNICATION] = true
+                val target_action = telegram_bot_actions.getOrNull(first_invalid_telegram_policy_order_index)
+                if (target_action != null) {
+                    editing_action_row_id = "telegram:${target_action.id}"
+                }
+            }
             ProfileValidationIssueKey.INTENT_STEP_TIMEOUT_INVALID -> {
                 group_expansion[ProfileActionGroup.APP_INTENT] = true
                 val target_intent = intent_actions.getOrNull(first_invalid_intent_timeout_index)
@@ -529,6 +571,10 @@ internal fun ProfileScreen(
                 val bounded_index = target_index.coerceIn(0, sms_recipients.lastIndex)
                 sms_recipients = move_string_item(sms_recipients, row.item_index, bounded_index)
                 sms_contact_picker_error_res_id = null
+            }
+            is TelegramBotActionRow -> {
+                val bounded_index = target_index.coerceIn(0, telegram_bot_actions.lastIndex)
+                telegram_bot_actions = move_telegram_bot_action(telegram_bot_actions, row.item_index, bounded_index)
             }
             is MessageBindingActionRow -> {
                 val bounded_index = target_index.coerceIn(0, message_app_bindings.lastIndex)
@@ -563,6 +609,15 @@ internal fun ProfileScreen(
                 sms_recipients = updated_sms_recipients
                 sms_contact_picker_error_res_id = null
                 disable_action_policy_if_empty(ActionId.SEND_SMS, updated_sms_recipients.isNotEmpty())
+            }
+            is TelegramBotActionRow -> {
+                val target_action = telegram_bot_actions.getOrNull(row.item_index)
+                if (target_action != null) {
+                    removed_telegram_policy_keys = removed_telegram_policy_keys + ActionPolicyKeys.for_telegram_bot(target_action.id)
+                }
+                telegram_bot_actions = normalize_telegram_bot_action_orders(
+                    telegram_bot_actions.filterIndexed { index, _ -> index != row.item_index }
+                )
             }
             is MessageBindingActionRow -> {
                 message_app_bindings = normalize_message_binding_orders(
@@ -607,6 +662,12 @@ internal fun ProfileScreen(
                 ensure_action_policy_row(ActionId.SEND_SMS)
                 sms_recipients = sms_recipients + ""
                 editing_action_row_id = "sms:${sms_recipients.lastIndex}"
+            }
+            ProfileActionRowType.TELEGRAM_BOT_ACTION -> {
+                telegram_bot_actions = telegram_bot_actions + create_empty_telegram_bot_action(
+                    default_execution_order = telegram_bot_actions.size + 1
+                )
+                editing_action_row_id = "telegram:${telegram_bot_actions.last().id}"
             }
             ProfileActionRowType.MESSAGE_BINDING -> {
                 message_app_bindings = message_app_bindings + create_empty_message_binding(
@@ -686,6 +747,13 @@ internal fun ProfileScreen(
                     default_execution_order = index + 1
                 )
             }
+        telegram_bot_actions = profile.telegram_bot_actions.mapIndexed { index, telegram_action ->
+            to_editable_telegram_bot_action(
+                telegram_bot_action = telegram_action,
+                action_policies = profile.action_policies,
+                default_execution_order = index + 1
+            )
+        }
         intent_actions = profile.intent_actions.mapIndexed { index, intent_action ->
             to_editable_intent_action(
                 intent_action = intent_action,
@@ -696,6 +764,7 @@ internal fun ProfileScreen(
         uninstall_packages = profile.uninstall_allowlist
         delete_targets = profile.delete_allowlist.map(::to_editable_delete_target)
         advanced_shell_commands = profile.advanced_shell_commands.map(::to_editable_shell_command)
+        removed_telegram_policy_keys = emptySet()
         removed_intent_policy_keys = emptySet()
         destructive_actions_enabled = profile.destructive_actions_enabled
         triggers_enabled = profile.triggers_enabled
@@ -771,12 +840,15 @@ internal fun ProfileScreen(
                 existing_bindings = profile.action_bindings,
                 message_app_bindings = message_app_bindings
             ),
+            telegram_bot_actions = build_profile_telegram_bot_actions(telegram_bot_actions),
             intent_actions = build_profile_intent_actions(intent_actions),
             action_policies = build_profile_action_policies(
                 existing_policies = profile.action_policies,
                 message_app_bindings = message_app_bindings,
                 action_policy_rows = action_policy_rows,
                 removed_action_policy_map = removed_action_policy_map,
+                telegram_bot_actions = telegram_bot_actions,
+                removed_telegram_policy_keys = removed_telegram_policy_keys,
                 intent_actions = intent_actions,
                 removed_intent_policy_keys = removed_intent_policy_keys
             ),
@@ -799,6 +871,7 @@ internal fun ProfileScreen(
             modifier = Modifier.weight(1f),
             profile_list_state = profile_list_state,
             action_policy_rows = action_policy_rows,
+            telegram_bot_actions = telegram_bot_actions,
             message_app_bindings = message_app_bindings,
             intent_actions = intent_actions,
             show_reorder_helper = show_reorder_helper,
@@ -924,6 +997,7 @@ internal fun ProfileScreen(
         editing_action_row = editing_action_row,
         sms_recipients = sms_recipients,
         sms_contact_picker_error_res_id = sms_contact_picker_error_res_id,
+        telegram_bot_actions = telegram_bot_actions,
         message_app_bindings = message_app_bindings,
         intent_actions = intent_actions,
         uninstall_packages = uninstall_packages,
@@ -939,6 +1013,7 @@ internal fun ProfileScreen(
             sms_contact_picker_index = index
             sms_contact_picker_launcher.launch(null)
         },
+        on_update_telegram_bot_actions = { telegram_bot_actions = it },
         on_update_message_app_bindings = { message_app_bindings = it },
         on_open_message_binding_picker = { index -> message_binding_picker_index = index },
         on_update_intent_actions = { intent_actions = it },

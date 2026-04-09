@@ -4,6 +4,7 @@ import android.content.Context
 import com.yshalsager.mafza.emergency.providers.ActionProviderRegistry
 import com.yshalsager.mafza.emergency.providers.IntentMessageAppProvider
 import com.yshalsager.mafza.emergency.shell.ShizukuCommandExecutor
+import com.yshalsager.mafza.emergency.telegram.RealTelegramBotClient
 import com.yshalsager.mafza.core.contracts.ActionId
 import com.yshalsager.mafza.core.contracts.EmergencyStep
 import com.yshalsager.mafza.core.contracts.StepContext
@@ -21,6 +22,7 @@ object EmergencyStepsFactory {
             )
         )
         val steps = mutableListOf<EmergencyStep>()
+        val telegram_bot_client = RealTelegramBotClient()
         steps += LocationStep(
             app_context = app_context,
             run_step_state = run_step_state
@@ -43,6 +45,17 @@ object EmergencyStepsFactory {
                     run_step_state = run_step_state,
                     action_binding = action_binding,
                     binding_index = index
+                )
+            }
+        step_context.profile.telegram_bot_actions
+            .filter { it.enabled && it.id.trim().isNotEmpty() }
+            .forEachIndexed { index, telegram_action ->
+                steps += TelegramBotStep(
+                    app_context = app_context,
+                    run_step_state = run_step_state,
+                    telegram_action_spec = telegram_action,
+                    action_index = index,
+                    telegram_bot_client = telegram_bot_client
                 )
             }
 

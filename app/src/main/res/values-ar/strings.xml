@@ -34,6 +34,7 @@
     <string name='profile_action_group_destructive'>تدميري</string>
     <string name='profile_action_group_finalize'>الإنهاء</string>
     <string name='profile_action_type_sms_recipient'>مستلم SMS</string>
+    <string name='profile_action_type_telegram_bot'>بوت تيليجرام</string>
     <string name='profile_action_type_message_binding'>ربط تطبيق رسائل</string>
     <string name='profile_action_type_uninstall_package'>حزمة إزالة</string>
     <string name='profile_action_type_delete_target'>هدف حذف</string>
@@ -47,6 +48,7 @@
     <string name='profile_action_row_summary_no_intent_set'>لم يتم تحديد نية</string>
     <string name='profile_action_row_summary_no_path_set'>لم يتم تحديد مسار</string>
     <string name='profile_action_row_summary_no_label_set'>لم يتم تحديد اسم</string>
+    <string name='profile_action_row_summary_no_telegram_target'>لم يتم تحديد هدف تيليجرام</string>
     <string name='profile_action_row_summary_self_uninstall'>يُنفّذ بعد اكتمال جميع المسارات الأخرى</string>
     <string name='profile_action_row_menu_action'>خيارات السطر</string>
     <string name='profile_action_row_edit_action'>تعديل</string>
@@ -84,8 +86,10 @@
     <string name='profile_execution_preview_enabled'>مفعّل</string>
     <string name='profile_execution_preview_disabled'>معطّل</string>
     <string name='profile_execution_preview_binding_item'>تطبيق مراسلة: %1$s</string>
+    <string name='profile_execution_preview_telegram_item'>بوت تيليجرام: %1$s</string>
     <string name='profile_execution_preview_intent_item'>نية: %1$s</string>
     <string name='profile_execution_preview_unset_binding'>حزمة غير محددة</string>
+    <string name='profile_execution_preview_unset_telegram_bot'>إجراء بوت بدون اسم</string>
     <string name='profile_execution_preview_unset_intent'>نية بدون اسم</string>
     <string name='profile_advanced_show_action'>إظهار العناصر المتقدمة</string>
     <string name='profile_advanced_hide_action'>إخفاء العناصر المتقدمة</string>
@@ -142,6 +146,19 @@
     <string name='profile_message_binding_test_no_provider'>لا يوجد مزوّد مسجل</string>
     <string name='profile_message_binding_test_failed'>فشل فحص الجاهزية</string>
     <string name='profile_message_binding_test_unknown'>نتيجة غير معروفة</string>
+    <string name='profile_telegram_bot_label'>الاسم</string>
+    <string name='profile_telegram_bot_token_label'>رمز البوت</string>
+    <string name='profile_telegram_bot_chat_id_label'>معرّف المحادثة / @username</string>
+    <string name='profile_telegram_bot_template_override_label'>تخصيص القالب (اختياري)</string>
+    <string name='profile_telegram_bot_timeout_label'>مهلة الخطوة (ثوانٍ)</string>
+    <string name='profile_telegram_bot_enabled_label'>استخدم خطوة بوت تيليجرام هذه</string>
+    <string name='profile_telegram_bot_test_action'>اختبار البوت</string>
+    <string name='profile_telegram_bot_test_result_prefix'>الاختبار: </string>
+    <string name='profile_telegram_bot_test_ready'>جاهز</string>
+    <string name='profile_telegram_bot_test_missing_config'>رمز البوت وهدف المحادثة مطلوبان</string>
+    <string name='profile_telegram_bot_test_unavailable'>البوت غير متاح أو لا يمكن الوصول إليه</string>
+    <string name='profile_telegram_bot_test_failed'>فشل الاختبار</string>
+    <string name='profile_telegram_bot_test_unknown'>نتيجة غير معروفة</string>
     <string name='profile_action_types_title'>أنواع الإجراءات</string>
     <string name='profile_action_types_subtitle'>اختر فئات الإجراءات التي ستُضمَّن في كل تشغيل.</string>
     <string name='profile_action_types_help'>قواعد الفئة تُطبَّق على كل خطوات هذا النوع.</string>
@@ -284,6 +301,9 @@
     <string name='profile_validation_shell_payload'>%1$d أمر/أوامر شل بدون محتوى تنفيذ.</string>
     <string name='profile_validation_binding_package'>%1$d رابط/روابط مراسلة تحتاج اسم حزمة.</string>
     <string name='profile_validation_binding_order'>%1$d قيمة/قيم ترتيب سياسة روابط المراسلة غير صالحة.</string>
+    <string name='profile_validation_telegram_config'>%1$d إجراء/إجراءات بوت تيليجرام بدون رمز أو هدف محادثة.</string>
+    <string name='profile_validation_telegram_timeout'>%1$d قيمة/قيم مهلة بوت تيليجرام غير صالحة.</string>
+    <string name='profile_validation_telegram_order'>%1$d قيمة/قيم ترتيب سياسة بوت تيليجرام غير صالحة.</string>
     <string name='profile_validation_intent_step_timeout'>%1$d قيمة/قيم مهلة خطوة نية غير صالحة.</string>
     <string name='profile_validation_intent_order'>%1$d قيمة/قيم ترتيب سياسة النية غير صالحة.</string>
     <string name='preflight_title'>فحص الجاهزية</string>

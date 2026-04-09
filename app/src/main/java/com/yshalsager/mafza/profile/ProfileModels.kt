@@ -9,6 +9,7 @@ internal const val PROFILE_MIN_STEP_TIMEOUT_SECONDS = 1
 internal const val PROFILE_MAX_LOCATION_TIMEOUT_SECONDS = 120
 internal const val PROFILE_MAX_SMS_TIMEOUT_SECONDS = 120
 internal const val PROFILE_MAX_INTENT_TIMEOUT_SECONDS = 180
+internal const val PROFILE_MAX_TELEGRAM_TIMEOUT_SECONDS = 180
 internal const val PROFILE_MAX_ADVANCED_SHELL_TIMEOUT_SECONDS = 120
 internal const val PROFILE_MIN_POLICY_ORDER = 1
 internal const val PROFILE_MAX_POLICY_ORDER = 1_000
@@ -37,6 +38,7 @@ internal enum class ProfileActionGroup {
 
 internal enum class ProfileActionRowType {
     SMS_RECIPIENT,
+    TELEGRAM_BOT_ACTION,
     MESSAGE_BINDING,
     INTENT_ACTION,
     UNINSTALL_PACKAGE,
@@ -73,6 +75,17 @@ internal data class MessageBindingActionRow(
     override val row_type: ProfileActionRowType = ProfileActionRowType.MESSAGE_BINDING
     override val group: ProfileActionGroup = ProfileActionGroup.APP_INTENT
     override val policy_mode: ProfilePolicyMode = binding.policy_mode
+}
+
+internal data class TelegramBotActionRow(
+    override val row_id: String,
+    override val ui_order: Int,
+    val item_index: Int,
+    val telegram_bot_action: EditableTelegramBotAction
+) : ProfileActionRow {
+    override val row_type: ProfileActionRowType = ProfileActionRowType.TELEGRAM_BOT_ACTION
+    override val group: ProfileActionGroup = ProfileActionGroup.COMMUNICATION
+    override val policy_mode: ProfilePolicyMode = telegram_bot_action.policy_mode
 }
 
 internal data class IntentActionRow(
@@ -158,6 +171,21 @@ internal data class EditableIntentAction(
     val activity_name: String,
     val timeout_seconds: String,
     val continue_on_failure: Boolean,
+    val enabled: Boolean,
+    val policy_enabled: Boolean,
+    val policy_required: Boolean,
+    val policy_continue_on_failure: Boolean,
+    val policy_execution_order: String,
+    val policy_mode: ProfilePolicyMode
+)
+
+internal data class EditableTelegramBotAction(
+    val id: String,
+    val label: String,
+    val bot_token: String,
+    val chat_id: String,
+    val template_override: String,
+    val timeout_seconds: String,
     val enabled: Boolean,
     val policy_enabled: Boolean,
     val policy_required: Boolean,

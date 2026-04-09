@@ -2,6 +2,9 @@ package com.yshalsager.mafza.preflight
 
 import android.content.ContextWrapper
 import com.yshalsager.mafza.emergency.providers.ActionProviderRegistry
+import com.yshalsager.mafza.emergency.telegram.TelegramBotCheckResult
+import com.yshalsager.mafza.emergency.telegram.TelegramBotClient
+import com.yshalsager.mafza.emergency.telegram.TelegramBotSendResult
 import com.yshalsager.mafza.core.contracts.ActionBinding
 import com.yshalsager.mafza.core.contracts.ActionId
 import com.yshalsager.mafza.core.contracts.ActionPolicy
@@ -10,12 +13,110 @@ import com.yshalsager.mafza.core.contracts.DeleteTarget
 import com.yshalsager.mafza.core.contracts.EmergencyProfile
 import com.yshalsager.mafza.core.contracts.IntentActionSpec
 import com.yshalsager.mafza.core.contracts.ShellCommandSpec
+import com.yshalsager.mafza.core.contracts.TelegramBotActionSpec
 import com.yshalsager.mafza.shizuku.ShizukuPermissionState
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PreflightValidatorTest {
+    @Test
+    fun `required telegram bot action blocks live when bot is unreachable`() {
+        val validator = validator(
+            telegram_bot_client = FakeTelegramBotClient(ready = false)
+        )
+        val telegram_action = TelegramBotActionSpec(
+            id = "telegram_primary",
+            label = "Primary",
+            bot_token = "123456:abcdefghijklmnopqrstuvwxyzABCDE",
+            chat_id = "-1001234567890",
+            enabled = true
+        )
+        val profile = EmergencyProfile(
+            telegram_bot_actions = listOf(telegram_action),
+            action_policies = listOf(
+                ActionPolicy(
+                    action_id = ActionId.NOTIFY_TELEGRAM_BOT,
+                    policy_key = ActionPolicyKeys.for_telegram_bot(telegram_action.id),
+                    enabled = true,
+                    required = true,
+                    continue_on_failure = true,
+                    execution_order = 1
+                )
+            )
+        )
+
+        val report = validator.validate(profile, ShizukuPermissionState())
+
+        assertFalse(report.live_ready)
+        assertTrue(report.live_blocking_issues.contains("required_telegram_bot_unavailable_telegram_primary"))
+    }
+
+    @Test
+    fun `optional telegram bot action does not block live when bot is unreachable`() {
+        val validator = validator(
+            telegram_bot_client = FakeTelegramBotClient(ready = false)
+        )
+        val telegram_action = TelegramBotActionSpec(
+            id = "telegram_backup",
+            label = "Backup",
+            bot_token = "123456:abcdefghijklmnopqrstuvwxyzABCDE",
+            chat_id = "@backup_channel",
+            enabled = true
+        )
+        val profile = EmergencyProfile(
+            telegram_bot_actions = listOf(telegram_action),
+            action_policies = listOf(
+                ActionPolicy(
+                    action_id = ActionId.NOTIFY_TELEGRAM_BOT,
+                    policy_key = ActionPolicyKeys.for_telegram_bot(telegram_action.id),
+                    enabled = true,
+                    required = false,
+                    continue_on_failure = true,
+                    execution_order = 1
+                )
+            )
+        )
+
+        val report = validator.validate(profile, ShizukuPermissionState())
+
+        assertTrue(report.live_ready)
+        assertTrue(report.warnings.contains("optional_telegram_bot_unavailable_telegram_backup"))
+    }
+
+    @Test
+    fun `invalid telegram bot config blocks live and dry run`() {
+        val validator = validator()
+        val profile = EmergencyProfile(
+            telegram_bot_actions = listOf(
+                TelegramBotActionSpec(
+                    id = "telegram_invalid",
+                    label = "Invalid",
+                    bot_token = "bad-token",
+                    chat_id = "",
+                    enabled = true
+                )
+            ),
+            action_policies = listOf(
+                ActionPolicy(
+                    action_id = ActionId.NOTIFY_TELEGRAM_BOT,
+                    policy_key = ActionPolicyKeys.for_telegram_bot("telegram_invalid"),
+                    enabled = true,
+                    required = true,
+                    continue_on_failure = true,
+                    execution_order = 1
+                )
+            )
+        )
+
+        val report = validator.validate(profile, ShizukuPermissionState())
+
+        assertFalse(report.live_ready)
+        assertFalse(report.dry_run_ready)
+        assertTrue(report.live_blocking_issues.contains("invalid_telegram_bot_config_telegram_invalid"))
+        assertTrue(report.dry_run_blocking_issues.contains("invalid_telegram_bot_config_telegram_invalid"))
+    }
+
     @Test
     fun `dry run stays ready when only live environment checks fail`() {
         val validator = validator(
@@ -484,11 +585,13 @@ class PreflightValidatorTest {
         has_location_permission: Boolean = true,
         has_sms_permission: Boolean = true,
         has_phone_state_permission: Boolean = true,
-        binding_available: Boolean = true
+        binding_available: Boolean = true,
+        telegram_bot_client: TelegramBotClient = FakeTelegramBotClient(ready = true)
     ): PreflightValidator {
         return PreflightValidator(
             app_context = FakeContext(),
             action_provider_registry = ActionProviderRegistry(providers = emptyList()),
+            telegram_bot_client = telegram_bot_client,
             has_location_permission_checker = { has_location_permission },
             has_sms_permission_checker = { has_sms_permission },
             has_phone_state_permission_checker = { has_phone_state_permission },
@@ -498,4 +601,27 @@ class PreflightValidatorTest {
     }
 
     private class FakeContext : ContextWrapper(null)
+
+    private class FakeTelegramBotClient(
+        private val ready: Boolean
+    ) : TelegramBotClient {
+        override fun check_bot(bot_token: String, timeout_seconds: Int): TelegramBotCheckResult {
+            return TelegramBotCheckResult(
+                ready = ready,
+                details = if (ready) "telegram_get_me_ok" else "telegram_unavailable"
+            )
+        }
+
+        override fun send_message(
+            bot_token: String,
+            chat_id: String,
+            text: String,
+            timeout_seconds: Int
+        ): TelegramBotSendResult {
+            return TelegramBotSendResult(
+                success = ready,
+                details = if (ready) "telegram_ok" else "telegram_unavailable"
+            )
+        }
+    }
 }
