@@ -158,6 +158,8 @@
   - [x] add Dependabot updates (`.github/dependabot.yml`) for Gradle and GitHub Actions
   - [x] add secret scanning workflow (`.github/workflows/security.yml`) via gitleaks
   - [x] add dependency locking strategy for Gradle artifacts (`gradle.lockfile`)
-- [ ] Enforce must-pass release checklist from `PLAN.md`
+- [x] Enforce must-pass release checklist from `PLAN.md`
+  - [x] add manual release gate workflow (`.github/workflows/release-gate.yml`)
+  - [x] add checklist verifier (`scripts/verify_release_checklist.sh`) for `docs/RELEASE_CHECKLIST.md`
 - [x] Produce signed internal release APK and debug APK artifacts
   - [x] CI uploads deterministic names: `mafza-debug.apk`, `mafza-release.apk`

@@ -1,0 +1,17 @@
+name: Release Gate
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release_checklist_gate:
+    name: Verify Release Checklist
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify checklist status
+        run: ./scripts/verify_release_checklist.sh
