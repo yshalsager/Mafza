@@ -26,7 +26,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
@@ -106,12 +105,6 @@ internal fun HomeScreen(
             stringResource(R.string.a11y_state_off)
         }
         val destructive_switch_label = stringResource(R.string.destructive_toggle_title)
-        Text(
-            text = stringResource(R.string.home_title),
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.semantics { heading() }
-        )
-
         PreflightCard(
             preflight_report = preflight_report,
             shizuku_state = shizuku_state,

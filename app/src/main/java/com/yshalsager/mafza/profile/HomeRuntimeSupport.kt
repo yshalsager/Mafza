@@ -183,12 +183,12 @@ private fun ShizukuStatusRow(status: ShizukuStatus) {
         ShizukuStatus.ACTIVE -> R.string.preflight_shizuku_status_active
     }
     val status_background = when (status) {
-        ShizukuStatus.UNAVAILABLE -> MaterialTheme.colorScheme.errorContainer
+        ShizukuStatus.UNAVAILABLE -> MaterialTheme.colorScheme.surfaceVariant
         ShizukuStatus.AVAILABLE -> MaterialTheme.colorScheme.secondaryContainer
         ShizukuStatus.ACTIVE -> MaterialTheme.colorScheme.primaryContainer
     }
     val status_foreground = when (status) {
-        ShizukuStatus.UNAVAILABLE -> MaterialTheme.colorScheme.onErrorContainer
+        ShizukuStatus.UNAVAILABLE -> MaterialTheme.colorScheme.onSurfaceVariant
         ShizukuStatus.AVAILABLE -> MaterialTheme.colorScheme.onSecondaryContainer
         ShizukuStatus.ACTIVE -> MaterialTheme.colorScheme.onPrimaryContainer
     }
