@@ -323,6 +323,7 @@
     <string name='home_health_last_live'>آخر تشغيل مباشر ناجح: %1$s</string>
     <string name='home_health_last_dry_run'>آخر تشغيل تجريبي ناجح: %1$s</string>
     <string name='home_health_never'>أبدًا</string>
+    <string name='home_health_no_baseline'>لا يوجد خط أساس ناجح للتشغيل بعد.</string>
     <string name='home_health_stale_warning'>تحذير: واحدة أو أكثر من إشارات صحة التشغيل قديمة أو مفقودة.</string>
     <string name='a11y_state_on'>مفعل</string>
     <string name='a11y_state_off'>غير مفعل</string>

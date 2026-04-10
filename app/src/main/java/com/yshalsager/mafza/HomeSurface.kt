@@ -177,6 +177,7 @@ private fun RunHealthCard(
     val now_epoch_ms = System.currentTimeMillis()
     val live_stale = last_success_live == null || is_stale(last_success_live.started_at_epoch_ms, now_epoch_ms)
     val dry_run_stale = last_success_dry_run == null || is_stale(last_success_dry_run.started_at_epoch_ms, now_epoch_ms)
+    val has_success_baseline = last_success_live != null || last_success_dry_run != null
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -205,7 +206,12 @@ private fun RunHealthCard(
                 ),
                 style = MaterialTheme.typography.bodyMedium
             )
-            if (live_stale || dry_run_stale) {
+            if (!has_success_baseline) {
+                Text(
+                    text = stringResource(R.string.home_health_no_baseline),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            } else if (live_stale || dry_run_stale) {
                 Text(
                     text = stringResource(R.string.home_health_stale_warning),
                     style = MaterialTheme.typography.bodySmall,
