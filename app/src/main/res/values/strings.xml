@@ -353,7 +353,8 @@
     <string name='home_health_last_dry_run'>Last successful Dry Run: %1$s</string>
     <string name='home_health_never'>Never</string>
     <string name='home_health_no_baseline'>No successful run baseline yet.</string>
-    <string name='home_health_stale_warning'>Warning: one or more run health signals are stale or missing.</string>
+    <string name='home_health_partial_baseline'>Health baseline is partial. Complete at least one successful Live and Dry Run.</string>
+    <string name='home_health_stale_warning'>Warning: one or more run health signals are stale.</string>
     <string name='a11y_state_on'>On</string>
     <string name='a11y_state_off'>Off</string>
     <string name='a11y_expanded'>Expanded</string>

@@ -60,6 +60,17 @@ class RunStatusDeriverTest {
     }
 
     @Test
+    fun `returns COMPLETED_SUCCESS when all outcomes are non-failing skips`() {
+        val run_status = RunStatusDeriver.derive_run_status(
+            is_running = false,
+            cancelled_pre_start = false,
+            step_statuses = listOf(StepStatus.SKIPPED_DRY_RUN, StepStatus.SKIPPED_UNAVAILABLE)
+        )
+
+        assertEquals(RunStatus.COMPLETED_SUCCESS, run_status)
+    }
+
+    @Test
     fun `returns COMPLETED_FAILED when no steps executed`() {
         val run_status = RunStatusDeriver.derive_run_status(
             is_running = false,

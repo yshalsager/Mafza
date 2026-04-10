@@ -57,6 +57,12 @@ object RunStatusDeriver {
         val has_hard_failure = step_statuses.any { it == StepStatus.FAILED || it == StepStatus.TIMED_OUT }
         if (success_count == 0 && has_hard_failure) return RunStatus.COMPLETED_FAILED
 
+        // If no step succeeded but all outcomes are non-failing skips, treat run as successful.
+        val all_non_failing_skips = step_statuses.all {
+            it == StepStatus.SKIPPED_UNAVAILABLE || it == StepStatus.SKIPPED_DRY_RUN
+        }
+        if (all_non_failing_skips) return RunStatus.COMPLETED_SUCCESS
+
         return RunStatus.COMPLETED_FAILED
     }
 }

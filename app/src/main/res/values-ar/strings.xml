@@ -328,7 +328,8 @@
     <string name='home_health_last_dry_run'>آخر تشغيل تجريبي ناجح: %1$s</string>
     <string name='home_health_never'>أبدًا</string>
     <string name='home_health_no_baseline'>لا يوجد خط أساس ناجح للتشغيل بعد.</string>
-    <string name='home_health_stale_warning'>تحذير: واحدة أو أكثر من إشارات صحة التشغيل قديمة أو مفقودة.</string>
+    <string name='home_health_partial_baseline'>خط الأساس لصحة التشغيل جزئي. أكمل تشغيلًا مباشرًا وتجريبيًا ناجحين مرة واحدة على الأقل.</string>
+    <string name='home_health_stale_warning'>تحذير: واحدة أو أكثر من إشارات صحة التشغيل قديمة.</string>
     <string name='a11y_state_on'>مفعل</string>
     <string name='a11y_state_off'>غير مفعل</string>
     <string name='a11y_expanded'>موسع</string>

@@ -168,9 +168,11 @@ private fun RunHealthCard(
     last_success_dry_run: RunHistoryEntity?
 ) {
     val now_epoch_ms = System.currentTimeMillis()
-    val live_stale = last_success_live == null || is_stale(last_success_live.started_at_epoch_ms, now_epoch_ms)
-    val dry_run_stale = last_success_dry_run == null || is_stale(last_success_dry_run.started_at_epoch_ms, now_epoch_ms)
-    val has_success_baseline = last_success_live != null || last_success_dry_run != null
+    val has_live_baseline = last_success_live != null
+    val has_dry_baseline = last_success_dry_run != null
+    val has_any_baseline = has_live_baseline || has_dry_baseline
+    val live_stale = last_success_live?.started_at_epoch_ms?.let { is_stale(it, now_epoch_ms) } == true
+    val dry_run_stale = last_success_dry_run?.started_at_epoch_ms?.let { is_stale(it, now_epoch_ms) } == true
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -199,16 +201,21 @@ private fun RunHealthCard(
                 ),
                 style = MaterialTheme.typography.bodyMedium
             )
-            if (!has_success_baseline) {
-                Text(
+            when {
+                !has_any_baseline -> Text(
                     text = stringResource(R.string.home_health_no_baseline),
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            } else if (live_stale || dry_run_stale) {
-                Text(
+                live_stale || dry_run_stale -> Text(
                     text = stringResource(R.string.home_health_stale_warning),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error
+                )
+                !has_live_baseline || !has_dry_baseline -> Text(
+                    text = stringResource(R.string.home_health_partial_baseline),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
