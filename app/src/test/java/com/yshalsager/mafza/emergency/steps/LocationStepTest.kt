@@ -201,6 +201,85 @@ class LocationStepTest {
         assertNull(run_step_state.get_location()?.cell_snapshot)
     }
 
+    @Test
+    fun `uses OpenCellID lookup when platform location is unavailable`() = runTest {
+        val run_step_state = RunStepState()
+        var lookup_invocations = 0
+        val location_step = LocationStep(
+            app_context = null,
+            run_step_state = run_step_state,
+            has_location_permission_checker = { true },
+            has_phone_state_permission_checker = { true },
+            provider_resolver = { "network" },
+            location_reader = { null },
+            cell_snapshot_reader = {
+                CellSnapshot(
+                    cell_id = "170402199",
+                    radio_type = "lte",
+                    area_code = "35632",
+                    pci = 321,
+                    mcc = "310",
+                    mnc = "410"
+                )
+            },
+            cell_lookup_reader = { api_key, snapshot ->
+                lookup_invocations += 1
+                assertEquals("test_key", api_key)
+                assertEquals("310", snapshot.mcc)
+                assertEquals("410", snapshot.mnc)
+                LocationSnapshot(
+                    latitude = 29.3759,
+                    longitude = 47.9774,
+                    altitude = null,
+                    accuracy_meters = 850.0f
+                )
+            }
+        )
+
+        val result = location_step.execute(
+            test_step_context(
+                profile = EmergencyProfile(opencellid_api_key = "test_key")
+            )
+        )
+        assertEquals(StepStatus.SUCCESS, result.status)
+        assertEquals(1, lookup_invocations)
+        assertEquals(29.3759, run_step_state.get_location()?.latitude ?: 0.0, 0.0001)
+        assertEquals(850.0f, run_step_state.get_location()?.accuracy_meters ?: 0.0f, 0.0001f)
+    }
+
+    @Test
+    fun `skips OpenCellID lookup when API key is missing`() = runTest {
+        val run_step_state = RunStepState()
+        var lookup_invocations = 0
+        val location_step = LocationStep(
+            app_context = null,
+            run_step_state = run_step_state,
+            has_location_permission_checker = { true },
+            has_phone_state_permission_checker = { true },
+            provider_resolver = { "network" },
+            location_reader = { null },
+            cell_snapshot_reader = {
+                CellSnapshot(
+                    cell_id = "170402199",
+                    radio_type = "lte",
+                    area_code = "35632",
+                    pci = 321,
+                    mcc = "310",
+                    mnc = "410"
+                )
+            },
+            cell_lookup_reader = { _, _ ->
+                lookup_invocations += 1
+                null
+            }
+        )
+
+        val result = location_step.execute(test_step_context(profile = EmergencyProfile(opencellid_api_key = "")))
+        assertEquals(StepStatus.SKIPPED_UNAVAILABLE, result.status)
+        assertEquals("location_unavailable", result.details)
+        assertEquals(0, lookup_invocations)
+    }
+
     private fun test_step_context(
         profile: EmergencyProfile = EmergencyProfile(),
         mode: ExecutionMode = ExecutionMode.LIVE

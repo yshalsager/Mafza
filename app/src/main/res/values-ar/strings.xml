@@ -22,6 +22,8 @@
     <string name='profile_settings_message_summary'>قالب التنبيه المشترك وهدف التنبيه الاختياري.</string>
     <string name='profile_settings_timeouts_title'>توقيت التنفيذ</string>
     <string name='profile_settings_timeouts_summary'>نافذة الإلغاء وإعدادات مهلة كل خطوة.</string>
+    <string name='profile_settings_location_lookup_title'>بحث الموقع</string>
+    <string name='profile_settings_location_lookup_summary'>اضبط خيار OpenCellID الاحتياطي لتحديد الموقع.</string>
     <string name='profile_settings_safety_title'>الأمان</string>
     <string name='profile_settings_safety_summary'>مفاتيح الإجراءات التدميرية وسلوك الإزالة الذاتية.</string>
     <string name='profile_add_action_choose_group_title'>اختر مجموعة الإجراء</string>
@@ -259,6 +261,7 @@
     <string name='profile_intent_action_test_unknown'>غير معروف</string>
     <string name='profile_cancel_window_label'>نافذة الإلغاء (ثوانٍ)</string>
     <string name='profile_location_timeout_label'>مهلة الموقع (ثوانٍ)</string>
+    <string name='profile_opencellid_api_key_label'>مفتاح OpenCellID API (اختياري)</string>
     <string name='profile_sms_timeout_label'>مهلة الرسائل (ثوانٍ)</string>
     <string name='profile_intent_timeout_label'>مهلة النية (ثوانٍ)</string>
     <string name='profile_destructive_enabled_label'>السماح بالإجراءات التدميرية</string>

@@ -15,6 +15,7 @@ internal fun has_sensitive_profile_changes(
     original_profile: EmergencyProfile,
     updated_profile: EmergencyProfile
 ): Boolean {
+    if (original_profile.opencellid_api_key != updated_profile.opencellid_api_key) return true
     if (original_profile.destructive_actions_enabled != updated_profile.destructive_actions_enabled) return true
     if (original_profile.triggers_enabled != updated_profile.triggers_enabled) return true
     if (original_profile.self_uninstall_enabled != updated_profile.self_uninstall_enabled) return true

@@ -32,8 +32,10 @@ object MessageTemplateRenderer {
         val cell_radio = location_snapshot?.cell_snapshot?.radio_type.orEmpty()
         val cell_area = location_snapshot?.cell_snapshot?.area_code.orEmpty()
         val cell_pci = location_snapshot?.cell_snapshot?.pci?.toString().orEmpty()
+        val cell_mcc = location_snapshot?.cell_snapshot?.mcc.orEmpty()
+        val cell_mnc = location_snapshot?.cell_snapshot?.mnc.orEmpty()
         val maps_url = if (location_snapshot == null) "" else {
-            "https://maps.google.com/?q=${location_snapshot.latitude},${location_snapshot.longitude}"
+            "https://www.google.com/maps/search/?api=1&query=${location_snapshot.latitude},${location_snapshot.longitude}"
         }
         val battery_percent = read_battery_percent(context)
         val app_version = runCatching {
@@ -53,6 +55,8 @@ object MessageTemplateRenderer {
             "{cell_radio}" to cell_radio,
             "{cell_area}" to cell_area,
             "{cell_pci}" to cell_pci,
+            "{cell_mcc}" to cell_mcc,
+            "{cell_mnc}" to cell_mnc,
             "{battery}" to battery_percent,
             "{locale}" to locale.toLanguageTag(),
             "{app_version}" to app_version

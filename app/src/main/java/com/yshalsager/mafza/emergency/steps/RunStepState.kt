@@ -14,7 +14,9 @@ data class CellSnapshot(
     val cell_id: String?,
     val radio_type: String?,
     val area_code: String?,
-    val pci: Int?
+    val pci: Int?,
+    val mcc: String? = null,
+    val mnc: String? = null
 )
 
 class RunStepState {

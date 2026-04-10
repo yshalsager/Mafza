@@ -46,6 +46,8 @@ internal fun ProfileContentList(
     on_profile_settings_expanded_change: (Boolean) -> Unit,
     message_settings_expanded: Boolean,
     on_message_settings_expanded_change: (Boolean) -> Unit,
+    location_lookup_settings_expanded: Boolean,
+    on_location_lookup_settings_expanded_change: (Boolean) -> Unit,
     timeouts_settings_expanded: Boolean,
     on_timeouts_settings_expanded_change: (Boolean) -> Unit,
     safety_settings_expanded: Boolean,
@@ -60,6 +62,8 @@ internal fun ProfileContentList(
     location_timeout_input: String,
     location_timeout_error: String?,
     on_location_timeout_change: (String) -> Unit,
+    opencellid_api_key_input: String,
+    on_opencellid_api_key_change: (String) -> Unit,
     sms_timeout_input: String,
     sms_timeout_error: String?,
     on_sms_timeout_change: (String) -> Unit,
@@ -236,6 +240,21 @@ internal fun ProfileContentList(
                 }
 
                 CollapsibleInlineSection(
+                    title = stringResource(R.string.profile_settings_location_lookup_title),
+                    summary = stringResource(R.string.profile_settings_location_lookup_summary),
+                    initially_expanded = false,
+                    expanded = location_lookup_settings_expanded,
+                    on_expanded_change = on_location_lookup_settings_expanded_change
+                ) {
+                    OutlinedTextField(
+                        value = opencellid_api_key_input,
+                        onValueChange = on_opencellid_api_key_change,
+                        label = { Text(text = stringResource(R.string.profile_opencellid_api_key_label)) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                CollapsibleInlineSection(
                     title = stringResource(R.string.profile_settings_timeouts_title),
                     summary = stringResource(R.string.profile_settings_timeouts_summary),
                     initially_expanded = false,
@@ -330,6 +349,8 @@ private val MESSAGE_TEMPLATE_VARIABLES = listOf(
     "{cell_radio}",
     "{cell_area}",
     "{cell_pci}",
+    "{cell_mcc}",
+    "{cell_mnc}",
     "{battery}",
     "{locale}",
     "{app_version}"

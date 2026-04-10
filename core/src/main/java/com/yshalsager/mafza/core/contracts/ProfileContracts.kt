@@ -97,6 +97,7 @@ data class EmergencyProfile(
     val intent_actions: List<IntentActionSpec> = emptyList(),
     val telegram_bot_actions: List<TelegramBotActionSpec> = emptyList(),
     val advanced_shell_commands: List<ShellCommandSpec> = emptyList(),
+    val opencellid_api_key: String = "",
     val destructive_actions_enabled: Boolean = false,
     val triggers_enabled: Boolean = true
 )

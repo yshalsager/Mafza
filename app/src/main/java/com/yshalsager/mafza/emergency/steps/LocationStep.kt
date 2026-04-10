@@ -16,6 +16,8 @@ import android.telephony.CellInfoTdscdma
 import android.telephony.CellInfoWcdma
 import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
+import com.yshalsager.mafza.emergency.location.OpenCellIdLookupClient
+import com.yshalsager.mafza.emergency.location.RealOpenCellIdLookupClient
 import com.yshalsager.mafza.core.contracts.EmergencyStep
 import com.yshalsager.mafza.core.contracts.ExecutionMode
 import com.yshalsager.mafza.core.contracts.StepContext
@@ -34,6 +36,8 @@ class LocationStep(
     private val provider_resolver: (() -> String?)? = null,
     private val location_reader: (suspend (String) -> LocationSnapshot?)? = null,
     private val cell_snapshot_reader: (() -> CellSnapshot?)? = null,
+    private val open_cell_lookup_client: OpenCellIdLookupClient = RealOpenCellIdLookupClient(),
+    private val cell_lookup_reader: (suspend (String, CellSnapshot) -> LocationSnapshot?)? = null,
     private val now_provider: () -> Long = { System.currentTimeMillis() }
 ) : EmergencyStep {
     override suspend fun execute(ctx: StepContext): StepResult {
@@ -73,9 +77,15 @@ class LocationStep(
         val timeout_millis = timeout_seconds * 1_000L
         val location_outcome = withTimeoutOrNull(timeout_millis) {
             val location_snapshot = read_current_location(providers)
-            val cell_snapshot = if (location_snapshot == null) null else read_cell_snapshot()
+            val cell_snapshot = read_cell_snapshot()
+            val resolved_location = location_snapshot
+                ?: read_location_from_cell_lookup(
+                    opencellid_api_key = ctx.profile.opencellid_api_key,
+                    cell_snapshot = cell_snapshot,
+                    timeout_seconds = timeout_seconds
+                )
             LocationReadOutcome(
-                location_snapshot = location_snapshot,
+                location_snapshot = resolved_location,
                 cell_snapshot = cell_snapshot
             )
         }
@@ -209,6 +219,9 @@ class LocationStep(
         location_snapshot.cell_snapshot?.radio_type?.takeIf { it.isNotBlank() }?.let { parts += "cell_radio=$it" }
         location_snapshot.cell_snapshot?.area_code?.takeIf { it.isNotBlank() }?.let { parts += "cell_area=$it" }
         location_snapshot.cell_snapshot?.pci?.let { parts += "cell_pci=$it" }
+        location_snapshot.cell_snapshot?.mcc?.takeIf { it.isNotBlank() }?.let { parts += "cell_mcc=$it" }
+        location_snapshot.cell_snapshot?.mnc?.takeIf { it.isNotBlank() }?.let { parts += "cell_mnc=$it" }
+        location_snapshot.accuracy_meters?.let { parts += "accuracy=$it" }
         return parts.joinToString(",")
     }
 
@@ -218,42 +231,54 @@ class LocationStep(
                 cell_id = int_or_null(cellIdentity.cid)?.toString(),
                 radio_type = "gsm",
                 area_code = int_or_null(cellIdentity.lac)?.toString(),
-                pci = null
+                pci = null,
+                mcc = normalize_plmn(cellIdentity.mccString),
+                mnc = normalize_plmn(cellIdentity.mncString)
             )
 
             is CellInfoLte -> CellSnapshot(
                 cell_id = int_or_null(cellIdentity.ci)?.toString(),
                 radio_type = "lte",
                 area_code = int_or_null(cellIdentity.tac)?.toString(),
-                pci = int_or_null(cellIdentity.pci)
+                pci = int_or_null(cellIdentity.pci),
+                mcc = normalize_plmn(cellIdentity.mccString),
+                mnc = normalize_plmn(cellIdentity.mncString)
             )
 
             is CellInfoWcdma -> CellSnapshot(
                 cell_id = int_or_null(cellIdentity.cid)?.toString(),
                 radio_type = "wcdma",
                 area_code = int_or_null(cellIdentity.lac)?.toString(),
-                pci = int_or_null(cellIdentity.psc)
+                pci = int_or_null(cellIdentity.psc),
+                mcc = normalize_plmn(cellIdentity.mccString),
+                mnc = normalize_plmn(cellIdentity.mncString)
             )
 
             is CellInfoTdscdma -> CellSnapshot(
                 cell_id = int_or_null(cellIdentity.cid)?.toString(),
                 radio_type = "tdscdma",
                 area_code = int_or_null(cellIdentity.lac)?.toString(),
-                pci = int_or_null(cellIdentity.cpid)
+                pci = int_or_null(cellIdentity.cpid),
+                mcc = normalize_plmn(cellIdentity.mccString),
+                mnc = normalize_plmn(cellIdentity.mncString)
             )
 
             is CellInfoCdma -> CellSnapshot(
                 cell_id = int_or_null(cellIdentity.basestationId)?.toString(),
                 radio_type = "cdma",
                 area_code = int_or_null(cellIdentity.networkId)?.toString(),
-                pci = null
+                pci = null,
+                mcc = null,
+                mnc = null
             )
 
             is CellInfoNr -> CellSnapshot(
                 cell_id = reflect_long(cellIdentity, "getNci")?.toString(),
                 radio_type = "nr",
                 area_code = reflect_int(cellIdentity, "getTac")?.toString(),
-                pci = reflect_int(cellIdentity, "getPci")
+                pci = reflect_int(cellIdentity, "getPci"),
+                mcc = normalize_plmn(reflect_string(cellIdentity, "getMccString")),
+                mnc = normalize_plmn(reflect_string(cellIdentity, "getMncString"))
             )
 
             else -> null
@@ -282,6 +307,44 @@ class LocationStep(
             target::class.java.getMethod(method_name).invoke(target) as? Long
         }.getOrNull() ?: return null
         return long_or_null(raw_value)
+    }
+
+    private fun reflect_string(target: Any, method_name: String): String? {
+        return runCatching {
+            target::class.java.getMethod(method_name).invoke(target) as? String
+        }.getOrNull()
+    }
+
+    private suspend fun read_location_from_cell_lookup(
+        opencellid_api_key: String,
+        cell_snapshot: CellSnapshot?,
+        timeout_seconds: Int
+    ): LocationSnapshot? {
+        if (cell_snapshot == null) return null
+        if (opencellid_api_key.trim().isEmpty()) return null
+
+        val override_reader = cell_lookup_reader
+        if (override_reader != null) return override_reader(opencellid_api_key, cell_snapshot)
+
+        val resolved = open_cell_lookup_client.lookup(
+            cell_snapshot = cell_snapshot,
+            api_key = opencellid_api_key,
+            timeout_seconds = timeout_seconds
+        ) ?: return null
+        return LocationSnapshot(
+            latitude = resolved.latitude,
+            longitude = resolved.longitude,
+            altitude = null,
+            accuracy_meters = resolved.accuracy_meters
+        )
+    }
+
+    private fun normalize_plmn(value: String?): String? {
+        val normalized = value?.trim().orEmpty()
+        if (normalized.isEmpty()) return null
+        if (normalized == Int.MAX_VALUE.toString() || normalized == Int.MIN_VALUE.toString()) return null
+        if (normalized == "-1") return null
+        return normalized
     }
 
     @SuppressLint("MissingPermission")

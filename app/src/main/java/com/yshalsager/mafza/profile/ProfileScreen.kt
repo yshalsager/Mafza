@@ -53,6 +53,7 @@ internal fun ProfileScreen(
     var message_template_input by remember(profile) { mutableStateOf(profile.message_template) }
     var cancel_window_input by remember(profile) { mutableStateOf(profile.cancel_window_seconds.toString()) }
     var location_timeout_input by remember(profile) { mutableStateOf(profile.location_timeout_seconds.toString()) }
+    var opencellid_api_key_input by remember(profile) { mutableStateOf(profile.opencellid_api_key) }
     var sms_timeout_input by remember(profile) { mutableStateOf(profile.sms_timeout_seconds.toString()) }
     var intent_timeout_input by remember(profile) { mutableStateOf(profile.intent_timeout_seconds.toString()) }
     var action_policy_rows by remember(profile) {
@@ -134,7 +135,8 @@ internal fun ProfileScreen(
     var editing_action_row_id by remember { mutableStateOf<String?>(null) }
     var show_reorder_helper by remember { mutableStateOf(false) }
     var profile_settings_expanded by remember { mutableStateOf(false) }
-    var message_settings_expanded by remember { mutableStateOf(true) }
+    var message_settings_expanded by remember { mutableStateOf(false) }
+    var location_lookup_settings_expanded by remember { mutableStateOf(false) }
     var timeouts_settings_expanded by remember { mutableStateOf(false) }
     var safety_settings_expanded by remember { mutableStateOf(false) }
     var backup_in_progress by remember { mutableStateOf(false) }
@@ -467,6 +469,7 @@ internal fun ProfileScreen(
         message_template_input = message_template_input,
         cancel_window_input = cancel_window_input,
         location_timeout_input = location_timeout_input,
+        opencellid_api_key_input = opencellid_api_key_input,
         sms_timeout_input = sms_timeout_input,
         intent_timeout_input = intent_timeout_input,
         action_policy_rows = action_policy_rows,
@@ -860,6 +863,7 @@ internal fun ProfileScreen(
         message_template_input = profile.message_template
         cancel_window_input = profile.cancel_window_seconds.toString()
         location_timeout_input = profile.location_timeout_seconds.toString()
+        opencellid_api_key_input = profile.opencellid_api_key
         sms_timeout_input = profile.sms_timeout_seconds.toString()
         intent_timeout_input = profile.intent_timeout_seconds.toString()
         action_policy_rows = extract_editable_action_policy_rows(profile.action_policies)
@@ -902,7 +906,8 @@ internal fun ProfileScreen(
         editing_action_row_id = null
         show_reorder_helper = false
         profile_settings_expanded = false
-        message_settings_expanded = true
+        message_settings_expanded = false
+        location_lookup_settings_expanded = false
         timeouts_settings_expanded = false
         safety_settings_expanded = false
         message_binding_picker_index = null
@@ -959,6 +964,7 @@ internal fun ProfileScreen(
                 min_value = PROFILE_MIN_STEP_TIMEOUT_SECONDS,
                 max_value = PROFILE_MAX_LOCATION_TIMEOUT_SECONDS
             ),
+            opencellid_api_key = opencellid_api_key_input.trim(),
             sms_timeout_seconds = parse_int_or_fallback(
                 value = sms_timeout_input,
                 fallback = profile.sms_timeout_seconds,
@@ -1034,6 +1040,8 @@ internal fun ProfileScreen(
             on_profile_settings_expanded_change = { expanded -> profile_settings_expanded = expanded },
             message_settings_expanded = message_settings_expanded,
             on_message_settings_expanded_change = { expanded -> message_settings_expanded = expanded },
+            location_lookup_settings_expanded = location_lookup_settings_expanded,
+            on_location_lookup_settings_expanded_change = { expanded -> location_lookup_settings_expanded = expanded },
             timeouts_settings_expanded = timeouts_settings_expanded,
             on_timeouts_settings_expanded_change = { expanded -> timeouts_settings_expanded = expanded },
             safety_settings_expanded = safety_settings_expanded,
@@ -1058,6 +1066,11 @@ internal fun ProfileScreen(
             location_timeout_error = location_timeout_error,
             on_location_timeout_change = {
                 location_timeout_input = it
+                mark_profile_dirty()
+            },
+            opencellid_api_key_input = opencellid_api_key_input,
+            on_opencellid_api_key_change = {
+                opencellid_api_key_input = it
                 mark_profile_dirty()
             },
             sms_timeout_input = sms_timeout_input,

@@ -22,6 +22,8 @@
     <string name='profile_settings_message_summary'>Shared alert template and optional notify target.</string>
     <string name='profile_settings_timeouts_title'>Execution Timing</string>
     <string name='profile_settings_timeouts_summary'>Cancel window and per-step timeout controls.</string>
+    <string name='profile_settings_location_lookup_title'>Location Lookup</string>
+    <string name='profile_settings_location_lookup_summary'>Configure optional OpenCellID fallback for location resolution.</string>
     <string name='profile_settings_safety_title'>Safety</string>
     <string name='profile_settings_safety_summary'>Destructive toggles and self-uninstall behavior.</string>
     <string name='profile_backup_title'>Backup / Restore</string>
@@ -284,6 +286,7 @@
     <string name='profile_intent_action_test_unknown'>Unknown</string>
     <string name='profile_cancel_window_label'>Cancel Window (seconds)</string>
     <string name='profile_location_timeout_label'>Location Timeout (seconds)</string>
+    <string name='profile_opencellid_api_key_label'>OpenCellID API Key (optional)</string>
     <string name='profile_sms_timeout_label'>SMS Timeout (seconds)</string>
     <string name='profile_intent_timeout_label'>Intent Timeout (seconds)</string>
     <string name='profile_destructive_enabled_label'>Allow destructive actions</string>
