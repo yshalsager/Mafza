@@ -335,6 +335,10 @@
     <string name='preflight_ready'>Ready for Live execution.</string>
     <string name='preflight_shizuku_not_running'>Shizuku is not running. Start Shizuku, then refresh status.</string>
     <string name='preflight_shizuku_permission_required'>Shizuku permission is required to enable destructive live actions.</string>
+    <string name='preflight_shizuku_status_label'>Shizuku status</string>
+    <string name='preflight_shizuku_status_unavailable'>Not available</string>
+    <string name='preflight_shizuku_status_available'>Available</string>
+    <string name='preflight_shizuku_status_active'>Active</string>
     <string name='preflight_permission_rationale'>Permission was denied previously. Grant it to allow destructive actions.</string>
     <string name='preflight_unknown'>Preflight status unknown.</string>
     <string name='preflight_refresh'>Refresh status</string>

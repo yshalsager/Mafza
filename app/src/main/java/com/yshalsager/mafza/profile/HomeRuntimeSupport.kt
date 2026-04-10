@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -21,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -100,6 +102,11 @@ internal fun PreflightCard(
             add(Manifest.permission.READ_PHONE_STATE)
         }
     }
+    val shizuku_status = when {
+        !shizuku_state.is_running -> ShizukuStatus.UNAVAILABLE
+        !shizuku_state.is_permission_granted -> ShizukuStatus.AVAILABLE
+        else -> ShizukuStatus.ACTIVE
+    }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -113,6 +120,7 @@ internal fun PreflightCard(
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.semantics { heading() }
             )
+            ShizukuStatusRow(status = shizuku_status)
             Text(
                 text = when {
                     preflight_report.live_ready -> stringResource(R.string.preflight_ready)
@@ -157,6 +165,52 @@ internal fun PreflightCard(
                     Text(text = stringResource(R.string.preflight_open_profile_setup))
                 }
             }
+        }
+    }
+}
+
+private enum class ShizukuStatus {
+    UNAVAILABLE,
+    AVAILABLE,
+    ACTIVE
+}
+
+@Composable
+private fun ShizukuStatusRow(status: ShizukuStatus) {
+    val status_label_res = when (status) {
+        ShizukuStatus.UNAVAILABLE -> R.string.preflight_shizuku_status_unavailable
+        ShizukuStatus.AVAILABLE -> R.string.preflight_shizuku_status_available
+        ShizukuStatus.ACTIVE -> R.string.preflight_shizuku_status_active
+    }
+    val status_background = when (status) {
+        ShizukuStatus.UNAVAILABLE -> MaterialTheme.colorScheme.errorContainer
+        ShizukuStatus.AVAILABLE -> MaterialTheme.colorScheme.secondaryContainer
+        ShizukuStatus.ACTIVE -> MaterialTheme.colorScheme.primaryContainer
+    }
+    val status_foreground = when (status) {
+        ShizukuStatus.UNAVAILABLE -> MaterialTheme.colorScheme.onErrorContainer
+        ShizukuStatus.AVAILABLE -> MaterialTheme.colorScheme.onSecondaryContainer
+        ShizukuStatus.ACTIVE -> MaterialTheme.colorScheme.onPrimaryContainer
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = stringResource(R.string.preflight_shizuku_status_label),
+            style = MaterialTheme.typography.labelMedium
+        )
+        Box(
+            modifier = Modifier
+                .background(status_background, RoundedCornerShape(999.dp))
+                .padding(horizontal = 10.dp, vertical = 4.dp)
+        ) {
+            Text(
+                text = stringResource(status_label_res),
+                color = status_foreground,
+                style = MaterialTheme.typography.labelMedium
+            )
         }
     }
 }

@@ -310,6 +310,10 @@
     <string name='preflight_ready'>جاهز للتنفيذ المباشر.</string>
     <string name='preflight_shizuku_not_running'>Shizuku غير قيد التشغيل. شغّل Shizuku ثم حدّث الحالة.</string>
     <string name='preflight_shizuku_permission_required'>صلاحية Shizuku مطلوبة لتفعيل الإجراءات التدميرية في التشغيل المباشر.</string>
+    <string name='preflight_shizuku_status_label'>حالة Shizuku</string>
+    <string name='preflight_shizuku_status_unavailable'>غير متاح</string>
+    <string name='preflight_shizuku_status_available'>متاح</string>
+    <string name='preflight_shizuku_status_active'>نشط</string>
     <string name='preflight_permission_rationale'>تم رفض الصلاحية سابقًا. امنحها للسماح بالإجراءات التدميرية.</string>
     <string name='preflight_unknown'>حالة الجاهزية غير معروفة.</string>
     <string name='preflight_refresh'>تحديث الحالة</string>
