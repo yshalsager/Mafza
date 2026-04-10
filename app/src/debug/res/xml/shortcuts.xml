@@ -9,6 +9,6 @@
         <intent
             android:action='com.yshalsager.mafza.action.TRIGGER_SHORTCUT'
             android:targetClass='com.yshalsager.mafza.emergency.EmergencyShortcutProxyActivity'
-            android:targetPackage='com.yshalsager.mafza' />
+            android:targetPackage='com.yshalsager.mafza.debug' />
     </shortcut>
 </shortcuts>
