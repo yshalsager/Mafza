@@ -1,7 +1,7 @@
 # Mafza v1 Implementation TODO
 
 ## 0) Project Bootstrap
-- [ ] Before each UI implementation/PR, consult `~/.codex/skill-sources/compose-skill/jetpack-compose-expert-skill/SKILL.md` and relevant `references/*`
+- Process note: before each UI implementation/PR, consult `~/.codex/skill-sources/compose-skill/jetpack-compose-expert-skill/SKILL.md` and relevant `references/*`
 - [x] Initialize Android project with modules `:app` and `:core`
 - [x] Set `applicationId` release to `com.yshalsager.mafza`
 - [x] Set debug `applicationId` to `com.yshalsager.mafza.debug` and `versionNameSuffix` `-debug`
@@ -107,7 +107,7 @@
   - [x] direct `Run Live` start (no confirmation dialog)
   - [x] full-screen cancel overlay (duration reflects user setting)
   - [x] health card (last successful Live/Dry Run + stale warning)
-- [ ] Profile:
+- [x] Profile:
   - [x] Single settings form
   - [x] unified action list with top-bar add flow (add/remove/reorder all action types)
   - [x] grouped/collapsible sections with runtime order preview
@@ -155,10 +155,8 @@
   - [x] add screenshot regression workflow (`.github/workflows/screenshots.yml`) with fastlane screengrab
 - [x] Enforce dependency/security checks (locking + secret scanning)
   - [x] add Renovate updates (`renovate.json5`) for Gradle, Gradle Wrapper, and GitHub Actions
-  - [x] add secret scanning workflow (`.github/workflows/security.yml`) via gitleaks
   - [x] add dependency locking strategy for Gradle artifacts (`gradle.lockfile`)
 - [x] Enforce must-pass release checklist from `PLAN.md`
-  - [x] add manual release gate workflow (`.github/workflows/release-gate.yml`)
   - [x] add checklist verifier (`scripts/verify_release_checklist.sh`) for `docs/RELEASE_CHECKLIST.md`
 - [x] Produce signed internal release APK and debug APK artifacts
   - [x] CI uploads deterministic names: `mafza-debug.apk`, `mafza-release.apk`

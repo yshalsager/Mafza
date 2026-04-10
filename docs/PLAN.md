@@ -19,8 +19,8 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
 - `enum class ExecutionMode { LIVE, DRY_RUN }`
 - `enum class StepStatus { SUCCESS, FAILED, TIMED_OUT, SKIPPED_UNAVAILABLE, SKIPPED_DRY_RUN, CANCELLED_PRE_START }`
 - `enum class RunStatus { RUNNING, CANCELLED_PRE_START, COMPLETED_SUCCESS, COMPLETED_PARTIAL, COMPLETED_FAILED }`
-- `enum class ActionId { SEND_SMS, NOTIFY_MESSAGE_APP, LAUNCH_INTENT, UNINSTALL_APPS, DELETE_PATHS, ADVANCED_SHELL_COMMANDS, SELF_UNINSTALL }`
-- `data class DeleteTarget(path: String, recursive: Boolean)`
+- `enum class ActionId { SEND_SMS, NOTIFY_MESSAGE_APP, NOTIFY_TELEGRAM_BOT, LAUNCH_INTENT, UNINSTALL_APPS, DELETE_PATHS, ADVANCED_SHELL_COMMANDS, SELF_UNINSTALL }`
+- `data class DeleteTarget(path: String, content_uri: String? = null, recursive: Boolean)`
 - `data class EmergencyProfile(...)` fields:
   - `sms_recipients: List<String>`
   - `notify_target: String`
@@ -36,7 +36,9 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
   - `action_bindings: List<ActionBinding>` (user-selected app/provider per app-driven action)
   - `action_policies: List<ActionPolicy>` (`enabled`, `required`, `continue_on_failure`, `execution_order`)
   - `intent_actions: List<IntentActionSpec>`
+  - `telegram_bot_actions: List<TelegramBotActionSpec>`
   - `advanced_shell_commands: List<ShellCommandSpec>`
+  - `opencellid_api_key: String` (optional, used for OpenCellID location fallback)
   - `destructive_actions_enabled: Boolean` (global safety toggle)
   - `triggers_enabled: Boolean` (global maintenance toggle; gates all external trigger sources, including explicit component calls)
 - `data class ActionBinding(...)` fields:
@@ -47,7 +49,7 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
   - `enabled: Boolean`
 - `data class ActionPolicy(...)` fields:
   - `action_id: ActionId`
-  - `policy_key: String` (instance key; examples: `action:send_sms`, `binding:notify_message_app:<id>`, `intent:<id>`)
+  - `policy_key: String` (instance key; examples: `action:send_sms`, `binding:notify_message_app:<id>`, `intent:<id>`, `telegram:<id>`)
   - `enabled: Boolean`
   - `required: Boolean`
   - `continue_on_failure: Boolean`
@@ -74,6 +76,14 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
   - `timeout_seconds: Int`
   - `continue_on_failure: Boolean`
   - `enabled: Boolean`
+- `data class TelegramBotActionSpec(...)` fields:
+  - `id: String`
+  - `label: String`
+  - `bot_token: String`
+  - `chat_id: String`
+  - `template_override: String?`
+  - `timeout_seconds: Int`
+  - `enabled: Boolean`
 - `data class ProviderCapabilities(...)` fields:
   - `supports_template: Boolean`
   - `supports_target: Boolean`
@@ -96,7 +106,8 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
   - `include_history: Boolean`
   - `history: List<RunHistoryExportItem>` (optional; present only when `include_history=true`)
 - `interface BackupService`:
-  - `fun exportEncryptedBackup(passphrase: CharArray, includeHistory: Boolean): Uri`
+  - `fun exportEncryptedBackup(output_uri: Uri, passphrase: CharArray, includeHistory: Boolean): Uri`
+  - `fun readBackupPreview(uri: Uri, passphrase: CharArray): BackupPreview`
   - `fun restoreEncryptedBackup(uri: Uri, passphrase: CharArray): RestoreResult`
 - Trigger duplicate contract:
   - if a run is active, new trigger is ignored and logged as `IGNORED_DUPLICATE_TRIGGER`; no queue and no restart
@@ -143,7 +154,7 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
   - sequential best-effort fanout across recipients
   - per-recipient result logged
   - recipients are required only when SMS action policy is marked `required=true`
-  - template variables: `{timestamp}`, `{lat}`, `{lon}`, `{maps_url}`, `{trigger}`, `{altitude}`, `{accuracy}`, `{battery}`, `{locale}`, `{app_version}`
+  - template variables: `{timestamp}`, `{lat}`, `{lon}`, `{maps_url}`, `{trigger}`, `{altitude}`, `{accuracy}`, `{battery}`, `{locale}`, `{app_version}`, `{cell_id}`, `{cell_radio}`, `{cell_area}`, `{cell_pci}`, `{cell_mcc}`, `{cell_mnc}`
 - App-driven notify contract:
   - message-app steps use user-selected app bindings (package/activity) from profile
   - provider abstraction supports Telegram and any selected compatible messaging app
@@ -188,9 +199,10 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
   - Live blocking checks matrix:
     - valid profile schema and required fields
     - at least one valid recipient only when SMS action is required
+    - valid Telegram bot configuration for enabled Telegram actions
     - message-app provider binding installed and launchable
     - enabled intent actions are structurally valid and resolvable (unless explicit optional policy marks them non-required)
-    - required runtime permissions granted (SMS/location as configured)
+    - required runtime permissions granted (SMS/location/phone-state as configured)
     - Shizuku ready when destructive actions are enabled
     - advanced shell commands valid (`argv` present or allowed `raw_shell`) when enabled
   - Live warnings (non-blocking):
@@ -343,15 +355,13 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
   - `mise` for reproducible local tool/runtime setup
 - Android stack:
   - latest stable AGP, Kotlin, and Compose BOM at implementation start (no alpha/beta/rc)
-  - Hilt, Room + KSP, DataStore (Proto), kotlinx serialization
+  - Hilt, Room + KSP, DataStore (custom JSON serializer), kotlinx serialization
 - Code quality:
-  - `ktlint` for style
-  - `detekt` for static analysis
-  - Android lint with critical issues treated as build failures
+  - Android lint in CI/build validation
 - Testing stack:
-  - unit: JUnit, kotlinx-coroutines-test, Turbine, MockK
+  - unit: JUnit, kotlinx-coroutines-test
   - UI: Compose UI test
-  - screenshot regression: Paparazzi (or Shot)
+  - screenshot capture: fastlane screengrab instrumentation tests
   - instrumentation: AndroidX test runner + Compose/Espresso rules
 - Dependency/security hygiene:
   - Dependabot or Renovate for update PRs
@@ -362,7 +372,7 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
   - unit tests
   - instrumentation/screenshot jobs
   - assemble debug and release APK artifacts
-  - artifact outputs: `mafza-debug.apk`, `mafza-release.apk`
+  - artifact outputs: `mafza-<version>-debug.apk`, `mafza-<version>-release.apk`
 
 ### Test Plan
 - Unit tests:
@@ -426,42 +436,44 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
 - Immediate execution is mandatory; only the configured pre-start cancel window is allowed (default 2 seconds).
 - No KMP/Desktop scope in v1.
 
-## Plan Addendum: Cell ID Beside Location (History + Template)
+## Plan Addendum: Cell Metadata + OpenCellID Fallback
 
 ### Summary
-- Add telephony cell metadata capture to the location step.
-- Show detailed radio info beside location in step details.
-- Expose `{cell_id}` in message templates.
-- Enforce `READ_PHONE_STATE` in preflight/runtime permission flow, while still capturing lat/lon if phone-state access is unavailable at execution time.
+- Capture full telephony cell metadata during location step execution.
+- Expose cell metadata in message templates.
+- Add optional client-side OpenCellID fallback when platform location is unavailable.
+- Keep the location pipeline best-effort: if OpenCellID lookup is unavailable or not configured, execution continues safely.
 
 ### Key Changes
 - Location pipeline:
-  - Extend internal location snapshot type with cell metadata fields (at minimum: `cell_id`, radio type, and technology-specific details such as TAC/LAC and PCI when available).
-  - In the location step, read current location as today, then read telephony cell info (prefer registered cell; fallback to first available).
-  - Build success details as key-value text including `lat`, `lon`, and available cell/radio fields.
-  - Keep location successful even when cell info is unavailable or blocked; only cell fields are omitted.
+  - Extend location snapshot state with cell metadata: `cell_id`, `radio_type`, `area_code` (LAC/TAC), `pci`, `mcc`, `mnc`.
+  - Read telephony cell info from current registered cell (fallback to first available cell).
+  - Include cell metadata in run step details when present.
+  - When platform location cannot be resolved, attempt OpenCellID lookup using collected cell identifiers.
+- OpenCellID integration:
+  - Use `https://opencellid.org/cell/get` with `key`, `mcc`, `mnc`, `lac`, `cellid`, and optional mapped `radio`.
+  - Supported radio mapping for requests: `gsm -> GSM`, `wcdma|tdscdma -> UMTS`, `lte -> LTE`, `nr -> NR`, `cdma -> CDMA`.
+  - Parse response `lat`/`lon`; map `range` to `accuracy_meters` when available.
+  - Keep OpenCellID API key in profile settings (`opencellid_api_key`), optional and treated as sensitive profile input.
+- Message/template rendering:
+  - Keep existing location tokens and map URL output.
+  - Maps URL format: `https://www.google.com/maps/search/?api=1&query=<lat>,<lon>`.
+  - Add cell tokens: `{cell_id}`, `{cell_radio}`, `{cell_area}`, `{cell_pci}`, `{cell_mcc}`, `{cell_mnc}`.
+  - Tokens resolve to empty string when unavailable.
 - Permission/preflight:
-  - Add `READ_PHONE_STATE` permission to manifest.
-  - Add a new live preflight blocking issue for missing phone-state permission.
-  - Include phone-state permission in the runtime permission request set from the preflight card.
-- Template rendering:
-  - Add `{cell_id}` replacement token sourced from the run step state.
-  - Keep token empty if unavailable (no placeholder text).
-  - Update template variable documentation list to include `{cell_id}`.
+  - Require `READ_PHONE_STATE` for live readiness checks.
+  - Keep phone/cell data capture best-effort at runtime with safe degradation.
 
 ### Tests
 - Location step unit tests:
-  - Success path includes cell metadata in state/details when telephony data exists.
-  - Success path still works with lat/lon when telephony data is missing/blocked.
-  - Existing dry-run, timeout, and provider fallback behavior remain unchanged.
-- Preflight validator unit tests:
-  - Missing phone-state permission appears in live blocking issues.
-  - Live-ready behavior is restored when phone-state permission is granted.
-- Message/template coverage:
-  - Add or adjust a focused test around token replacement to verify `{cell_id}` is emitted when present and empty when absent.
+  - OpenCellID fallback success when platform location is unavailable and key/cell identifiers are present.
+  - OpenCellID fallback skip when key is empty or identifiers are incomplete.
+  - OpenCellID response accuracy is propagated when provided.
+  - Existing dry-run, timeout, and provider fallback behavior remains intact.
+- Template/message tests:
+  - Cell template variables render correctly when cell snapshot exists and are empty otherwise.
 
 ### Assumptions and Defaults
-- “Beside location” means location step details text and outgoing template support.
-- Detailed radio info is shown in history details only; templates get `{cell_id}` only.
-- No forced failure/skip of the whole location step due to missing phone-state permission; degradation is cell-info-only.
-- Android min SDK remains 30+, and telephony retrieval is implemented as best-effort per device/RAT availability.
+- No Google Geolocation API integration in v1; only OpenCellID fallback is supported.
+- OpenCellID fallback is optional and only used when primary platform location lookup fails.
+- Android min SDK remains 30+ and telephony extraction is best-effort across RAT/device variations.
