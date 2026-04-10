@@ -5,7 +5,9 @@ import android.net.Uri
 import com.yshalsager.mafza.core.contracts.BackupPayload
 import com.yshalsager.mafza.core.contracts.BackupPreview
 import com.yshalsager.mafza.core.contracts.BackupService
+import com.yshalsager.mafza.core.contracts.EmergencyProfile
 import com.yshalsager.mafza.core.contracts.RestoreResult
+import com.yshalsager.mafza.core.contracts.RunHistoryExportItem
 import com.yshalsager.mafza.core.data.history.RunHistoryStore
 import com.yshalsager.mafza.core.data.profile.EncryptedProfileStore
 import kotlinx.coroutines.runBlocking
@@ -88,30 +90,19 @@ class EncryptedBackupService(
                 )
             }
 
-            runBlocking {
-                val current_profile = profile_store.read_profile()
-                val current_history = if (payload.include_history) {
-                    history_store.export_runs_for_backup()
-                } else {
-                    emptyList()
-                }
-                runCatching {
-                    profile_store.write_profile(payload.profile)
-                    if (payload.include_history) {
-                        history_store.replace_runs_from_backup(payload.history)
-                    }
-                }.onFailure {
-                    profile_store.write_profile(current_profile)
-                    if (payload.include_history) {
-                        history_store.replace_runs_from_backup(current_history)
-                    }
-                    throw it
-                }
+            val restored_history_count = runBlocking {
+                apply_restored_payload_with_rollback(
+                    payload = payload,
+                    read_profile = { profile_store.read_profile() },
+                    write_profile = { profile_store.write_profile(it) },
+                    export_history = { history_store.export_runs_for_backup() },
+                    replace_history = { history_store.replace_runs_from_backup(it) }
+                )
             }
 
             RestoreResult(
                 success = true,
-                restored_history_count = if (payload.include_history) payload.history.size else 0,
+                restored_history_count = restored_history_count,
                 error_message = null
             )
         }.getOrElse { error ->
@@ -154,6 +145,30 @@ class EncryptedBackupService(
             bytes.decodeToString()
         )
     }
+}
+
+internal suspend fun apply_restored_payload_with_rollback(
+    payload: BackupPayload,
+    read_profile: suspend () -> EmergencyProfile,
+    write_profile: suspend (EmergencyProfile) -> Unit,
+    export_history: suspend () -> List<RunHistoryExportItem>,
+    replace_history: suspend (List<RunHistoryExportItem>) -> Unit
+): Int {
+    val current_profile = read_profile()
+    val current_history = if (payload.include_history) export_history() else emptyList()
+    runCatching {
+        write_profile(payload.profile)
+        if (payload.include_history) {
+            replace_history(payload.history)
+        }
+    }.onFailure {
+        write_profile(current_profile)
+        if (payload.include_history) {
+            replace_history(current_history)
+        }
+        throw it
+    }
+    return if (payload.include_history) payload.history.size else 0
 }
 
 private fun resolve_app_version(context: Context): String {

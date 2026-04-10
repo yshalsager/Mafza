@@ -15,8 +15,10 @@ import com.yshalsager.mafza.core.contracts.IntentActionSpec
 import com.yshalsager.mafza.core.contracts.ShellCommandSpec
 import com.yshalsager.mafza.core.contracts.TelegramBotActionSpec
 import com.yshalsager.mafza.shizuku.ShizukuPermissionState
+import java.nio.file.Files
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 
 class PreflightValidatorTest {
@@ -485,6 +487,50 @@ class PreflightValidatorTest {
         assertFalse(report.dry_run_ready)
         assertTrue(report.live_blocking_issues.contains("invalid_delete_allowlist"))
         assertTrue(report.dry_run_blocking_issues.contains("invalid_delete_allowlist"))
+    }
+
+    @Test
+    fun `non canonical delete path blocks both live and dry run`() {
+        val validator = validator()
+        val temp_dir = Files.createTempDirectory("mafza-non-canonical-")
+        val canonical_path = temp_dir.toFile().absolutePath
+        val non_canonical_path = "$canonical_path/../${temp_dir.fileName}"
+        val profile = EmergencyProfile(
+            sms_recipients = listOf("+20123456789"),
+            delete_allowlist = listOf(DeleteTarget(path = non_canonical_path, recursive = true))
+        )
+
+        val report = validator.validate(profile, ShizukuPermissionState())
+
+        assertFalse(report.live_ready)
+        assertFalse(report.dry_run_ready)
+        assertTrue(report.live_blocking_issues.contains("invalid_delete_allowlist"))
+        assertTrue(report.dry_run_blocking_issues.contains("invalid_delete_allowlist"))
+        temp_dir.toFile().deleteRecursively()
+    }
+
+    @Test
+    fun `symlink delete path blocks both live and dry run`() {
+        val validator = validator()
+        val temp_dir = Files.createTempDirectory("mafza-symlink-")
+        val target_file = Files.createTempFile(temp_dir, "target-", ".tmp")
+        val symlink_path = temp_dir.resolve("target-link")
+        val symlink_created = runCatching {
+            Files.createSymbolicLink(symlink_path, target_file.fileName)
+        }.isSuccess
+        assumeTrue(symlink_created)
+        val profile = EmergencyProfile(
+            sms_recipients = listOf("+20123456789"),
+            delete_allowlist = listOf(DeleteTarget(path = symlink_path.toFile().absolutePath, recursive = false))
+        )
+
+        val report = validator.validate(profile, ShizukuPermissionState())
+
+        assertFalse(report.live_ready)
+        assertFalse(report.dry_run_ready)
+        assertTrue(report.live_blocking_issues.contains("invalid_delete_allowlist"))
+        assertTrue(report.dry_run_blocking_issues.contains("invalid_delete_allowlist"))
+        temp_dir.toFile().deleteRecursively()
     }
 
     @Test

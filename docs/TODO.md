@@ -31,7 +31,6 @@
 - [x] Implement encrypted-at-rest profile handling (Keystore-backed)
 - [x] Implement redacted command audit model in history
 - [x] Implement audit export as redacted JSON
-- [ ] Migrate profile serializer format to Proto (optional pre-v1 cleanup)
 
 ## 3) Execution Engine
 - [x] Implement `EmergencyExecutionService` with single active run (`Mutex`)
