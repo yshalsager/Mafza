@@ -75,6 +75,7 @@ internal fun PreflightCard(
     on_request_permission: () -> Unit
 ) {
     val missing_location_permission = preflight_report.live_blocking_issues.contains("missing_location_permission")
+    val missing_background_location_permission = preflight_report.live_blocking_issues.contains("missing_background_location_permission")
     val missing_phone_state_permission = preflight_report.live_blocking_issues.contains("missing_read_phone_state_permission")
     val missing_sms_permission = preflight_report.live_blocking_issues.contains("missing_send_sms_permission")
     val missing_recipients = preflight_report.live_blocking_issues.contains("at_least_one_sms_recipient_required")
@@ -88,6 +89,9 @@ internal fun PreflightCard(
         if (missing_location_permission) {
             add(Manifest.permission.ACCESS_FINE_LOCATION)
             add(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+        if (missing_background_location_permission && !missing_location_permission) {
+            add(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
         }
         if (missing_sms_permission) {
             add(Manifest.permission.SEND_SMS)

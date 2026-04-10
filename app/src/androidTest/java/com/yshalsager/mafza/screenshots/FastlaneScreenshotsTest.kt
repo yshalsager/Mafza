@@ -232,6 +232,7 @@ class FastlaneScreenshotsTest {
         val permissions = listOf(
             "android.permission.ACCESS_FINE_LOCATION",
             "android.permission.ACCESS_COARSE_LOCATION",
+            "android.permission.ACCESS_BACKGROUND_LOCATION",
             "android.permission.READ_PHONE_STATE",
             "android.permission.SEND_SMS"
         )

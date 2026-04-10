@@ -36,6 +36,7 @@ class PreflightValidator(
     private val action_provider_registry: ActionProviderRegistry,
     private val telegram_bot_client: TelegramBotClient = RealTelegramBotClient(),
     private val has_location_permission_checker: (() -> Boolean)? = null,
+    private val has_background_location_permission_checker: (() -> Boolean)? = null,
     private val has_sms_permission_checker: (() -> Boolean)? = null,
     private val has_phone_state_permission_checker: (() -> Boolean)? = null,
     private val binding_available_checker: ((ActionBinding) -> Boolean)? = null,
@@ -82,6 +83,9 @@ class PreflightValidator(
 
         if (!has_location_permission()) {
             live_blocking_issues += "missing_location_permission"
+        }
+        if (!has_background_location_permission()) {
+            live_blocking_issues += "missing_background_location_permission"
         }
         if (!has_phone_state_permission()) {
             live_blocking_issues += "missing_read_phone_state_permission"
@@ -279,6 +283,13 @@ class PreflightValidator(
         val has_fine = ContextCompat.checkSelfPermission(app_context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val has_coarse = ContextCompat.checkSelfPermission(app_context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
         return has_fine || has_coarse
+    }
+
+    private fun has_background_location_permission(): Boolean {
+        val override_checker = has_background_location_permission_checker
+        if (override_checker != null) return override_checker()
+
+        return ContextCompat.checkSelfPermission(app_context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun has_sms_permission(): Boolean {
