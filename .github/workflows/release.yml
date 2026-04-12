@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       create_tag:
-        description: 'Create and push a release tag from current versionName'
+        description: 'Create and push a release tag'
         required: true
         default: false
         type: boolean
@@ -13,6 +13,24 @@ on:
         required: true
         default: true
         type: boolean
+      release:
+        description: 'Bump version from last tag and create a release'
+        required: true
+        default: false
+        type: boolean
+      bump:
+        description: 'Semver bump type (used when release=true)'
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      version:
+        description: 'Optional explicit version (e.g. 0.2.0). Overrides bump calculation when set.'
+        required: false
+        type: string
       skip_screenshots:
         description: 'Skip screenshot refresh workflow'
         required: true
@@ -48,22 +66,92 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            tag="${GITHUB_REF#refs/tags/}"
-            version="${tag#v}"
-          else
-            version="$(sed -nE 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"([^"]+)".*$/\1/p' app/build.gradle.kts | head -n 1)"
-            if [[ -z "$version" ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            VERSION="${TAG#v}"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ -n "${{ inputs.version }}" ]]; then
+            VERSION="${{ inputs.version }}"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "${{ inputs.release }}" != 'true' ]]; then
+            VERSION="$(sed -nE 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*\"([^\"]+)\".*$/\1/p' app/build.gradle.kts | head -n 1)"
+            if [[ -z "$VERSION" ]]; then
               echo 'versionName not found in app/build.gradle.kts'
               exit 1
             fi
-            tag="v${version}"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+          LAST_TAG=$(git tag -l 'v*.*.*' --sort=-v:refname | head -n 1 || true)
+          if [[ -z "$LAST_TAG" ]]; then
+            BASE='0.1.0'
+          else
+            BASE="${LAST_TAG#v}"
+          fi
+
+          IFS='.' read -r major minor patch <<<"$BASE"
+          case "${{ inputs.bump }}" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+
+          VERSION="$major.$minor.$patch"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Bump version files (manual release)
+        if: ${{ inputs.release && inputs.create_tag && github.event_name == 'workflow_dispatch' && !startsWith(github.ref, 'refs/tags/') }}
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mise x ruby -- ruby -e '
+            file = "app/build.gradle.kts"
+            content = File.read(file)
+            match = content.match(/versionCode\s*=\s*(\d+)/) or abort("versionCode not found in #{file}")
+            next_code = match[1].to_i + 1
+            content.sub!(/versionCode\s*=\s*\d+/, "versionCode = #{next_code}")
+            content.sub!(/versionName\s*=\s*"[^"]+"/, %(versionName = "#{ENV.fetch("VERSION")}"))
+            File.write(file, content)
+            puts "versionName=#{ENV.fetch("VERSION")} versionCode=#{next_code}"
+          '
+
+      - name: Commit + tag (manual release)
+        if: ${{ inputs.release && inputs.create_tag && github.event_name == 'workflow_dispatch' && !startsWith(github.ref, 'refs/tags/') }}
+        env:
+          TAG: ${{ steps.v.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/build.gradle.kts
+          git commit -m "chore(release): $TAG"
+          git tag -a "$TAG" -m "Release $TAG"
+
+      - name: Push changes (manual release)
+        if: ${{ inputs.release && inputs.create_tag && github.event_name == 'workflow_dispatch' && !startsWith(github.ref, 'refs/tags/') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push
+          git push --tags
 
       - name: Create and push release tag
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.create_tag }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.create_tag && !inputs.release }}
         shell: bash
         env:
           TAG: ${{ steps.v.outputs.tag }}
