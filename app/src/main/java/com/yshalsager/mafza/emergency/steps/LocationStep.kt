@@ -8,7 +8,6 @@ import android.location.Location
 import android.location.LocationManager
 import android.os.CancellationSignal
 import android.telephony.CellInfo
-import android.telephony.CellInfoCdma
 import android.telephony.CellInfoGsm
 import android.telephony.CellInfoLte
 import android.telephony.CellInfoNr
@@ -225,6 +224,7 @@ class LocationStep(
         return parts.joinToString(",")
     }
 
+    @Suppress("DEPRECATION")
     private fun CellInfo.to_cell_snapshot(): CellSnapshot? {
         return when (this) {
             is CellInfoGsm -> CellSnapshot(
@@ -263,7 +263,7 @@ class LocationStep(
                 mnc = normalize_plmn(cellIdentity.mncString)
             )
 
-            is CellInfoCdma -> CellSnapshot(
+            is android.telephony.CellInfoCdma -> CellSnapshot(
                 cell_id = int_or_null(cellIdentity.basestationId)?.toString(),
                 radio_type = "cdma",
                 area_code = int_or_null(cellIdentity.networkId)?.toString(),

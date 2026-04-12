@@ -205,6 +205,7 @@ internal fun ProfileScreen(
             save_error_message = app_context.getString(R.string.profile_sensitive_auth_no_secure_lock)
             return@launch false
         }
+        @Suppress("DEPRECATION")
         val intent = keyguard_manager.createConfirmDeviceCredentialIntent(
             app_context.getString(R.string.profile_sensitive_auth_title),
             app_context.getString(R.string.profile_sensitive_auth_subtitle)
