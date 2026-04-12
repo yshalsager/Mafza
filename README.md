@@ -73,9 +73,10 @@ Emergency actions runner with one configurable profile, external emergency trigg
 - Supports custom intent actions as executable steps.
 - Supports destructive actions with explicit allowlists:
   - uninstall package allowlist
-  - path/content URI delete allowlist
+  - absolute-path delete allowlist
   - advanced shell commands
-- Gates destructive live actions on Shizuku availability/permission.
+- Uses Shizuku for privileged destructive actions (uninstall, self-uninstall, advanced shell).
+- Supports path-delete fallback via Android All files access when Shizuku is unavailable.
 - Captures run history with step-level statuses and redacted command audit.
 - Supports encrypted backup/restore for profile and optional history (replace semantics).
 - Captures cell metadata and supports optional OpenCellID fallback when platform location is unavailable.
@@ -84,7 +85,8 @@ Emergency actions runner with one configurable profile, external emergency trigg
 
 - Android `minSdk 30` (Android 11+)
 - Runtime permissions for configured live features (`ACCESS_FINE_LOCATION`, `ACCESS_BACKGROUND_LOCATION`, `READ_PHONE_STATE`, `SEND_SMS`)
-- Shizuku installed/running and permission granted if destructive live actions are enabled
+- `MANAGE_EXTERNAL_STORAGE` (All files access) when path-delete actions are enabled without Shizuku
+- Shizuku installed/running and permission granted for privileged destructive live actions (uninstall, advanced shell, self-uninstall)
 - Optional OpenCellID API key for location fallback
 
 ## Architecture
@@ -147,6 +149,7 @@ bundle exec fastlane android capture_screenshots
 GitHub Actions workflows:
 
 - `ci.yml`: lint, unit tests, assemble, instrumentation subset, metadata validation
+- Linux emulator jobs enable KVM acceleration before running instrumentation
 - `screenshots.yml`: emulator-based screenshot capture and optional PR
 - `release.yml`: version/tag flow, screenshot refresh dependency, release artifacts, optional GitHub release
 

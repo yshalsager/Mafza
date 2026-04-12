@@ -13,6 +13,7 @@ A separate **Dry Run** can be started manually from inside the app and executes 
 Backup/restore is supported for profile recovery through encrypted export/import.
 Action execution is fully customizable: user selects app/provider bindings per app-driven action.
 Profile actions also support launching custom intents with data as executable steps.
+Delete-path actions prefer Shizuku execution and fall back to Android All files access when Shizuku is unavailable.
 Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key behavior may change until first release.
 
 ### Public Interfaces, Types, And Contracts
@@ -20,7 +21,7 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
 - `enum class StepStatus { SUCCESS, FAILED, TIMED_OUT, SKIPPED_UNAVAILABLE, SKIPPED_DRY_RUN, CANCELLED_PRE_START }`
 - `enum class RunStatus { RUNNING, CANCELLED_PRE_START, COMPLETED_SUCCESS, COMPLETED_PARTIAL, COMPLETED_FAILED }`
 - `enum class ActionId { SEND_SMS, NOTIFY_MESSAGE_APP, NOTIFY_TELEGRAM_BOT, LAUNCH_INTENT, UNINSTALL_APPS, DELETE_PATHS, ADVANCED_SHELL_COMMANDS, SELF_UNINSTALL }`
-- `data class DeleteTarget(path: String, content_uri: String? = null, recursive: Boolean)`
+- `data class DeleteTarget(path: String, content_uri: String? = null, recursive: Boolean)` (`content_uri` retained for schema compatibility; v1 runtime uses `path`)
 - `data class EmergencyProfile(...)` fields:
   - `sms_recipients: List<String>`
   - `notify_target: String`
@@ -181,6 +182,10 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
     - reject root path `/`
     - reject symlink targets
     - no hardcoded forbidden roots beyond root path rejection
+  - delete execution strategy:
+    - prefer Shizuku command execution when available
+    - fallback to local file deletion when All files access is granted
+    - `content_uri` is ignored at runtime and persisted as `null` for new edits
 - Shizuku command contract:
   - uninstall: `pm uninstall --user 0 <package>`
   - delete file: `rm -f -- <path>`
@@ -202,8 +207,10 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
     - valid Telegram bot configuration for enabled Telegram actions
     - message-app provider binding installed and launchable
     - enabled intent actions are structurally valid and resolvable (unless explicit optional policy marks them non-required)
-    - required runtime permissions granted (SMS/location/phone-state as configured)
-    - Shizuku ready when destructive actions are enabled
+    - baseline runtime permissions granted (`ACCESS_FINE_LOCATION`, `ACCESS_BACKGROUND_LOCATION`, `READ_PHONE_STATE`)
+    - `SEND_SMS` granted when SMS action is enabled with at least one recipient
+    - Shizuku ready when privileged destructive actions are enabled (`UNINSTALL_APPS`, `ADVANCED_SHELL_COMMANDS`, `SELF_UNINSTALL`)
+    - All files access granted when path-delete actions are enabled and Shizuku is unavailable
     - advanced shell commands valid (`argv` present or allowed `raw_shell`) when enabled
   - Live warnings (non-blocking):
     - optional provider capabilities that are not required by current configuration
@@ -264,13 +271,15 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
   - strong semantic status treatment for `Live`, `Dry Run`, `Success`, `Warning`, `Failure`
 - Home behavior:
   - two primary actions: `Run Live` and `Run Dry Run`
-  - `Run Live` requires one confirmation dialog before the cancel window
+  - `Run Live` starts immediately and enters the configured cancel window
   - cancel-window UI is a full-screen blocking overlay and reflects configured duration
-  - persistent preflight status card at top of Home with actionable fix links
-  - health card shows last successful Live run and last successful Dry Run with stale warning when outdated
+  - persistent preflight status card at top of Home with actionable fix links and Shizuku status (`Unavailable`/`Available`/`Active`)
+  - health card shows last successful Live run and last successful Dry Run
+  - health card stays neutral before any successful baseline run and warns only when an existing baseline becomes stale
 - Profile behavior:
   - single settings form (no wizard)
-  - allowlist editing is picker-assisted where possible, with manual fallback
+  - uninstall allowlist uses package picker with manual-entry fallback
+  - delete-target allowlist uses absolute-path editing with recursive toggle
   - app/provider picker for each app-driven action (starting with message app)
   - provider actions:
     - `Test Provider` per app-driven action
@@ -370,7 +379,7 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
 - CI pipeline (GitHub Actions):
   - lint + static analysis
   - unit tests
-  - instrumentation/screenshot jobs
+  - instrumentation/screenshot jobs on Linux emulator with KVM enabled
   - assemble debug and release APK artifacts
   - artifact outputs: `mafza-<version>-debug.apk`, `mafza-<version>-release.apk`
 
@@ -396,8 +405,8 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
   - foreground service lifecycle and notification behavior
   - profile snapshot-at-start behavior
   - external triggers always live, in-app dry run works
-  - Home flows: Live confirmation, full-screen cancel overlay, Dry Run start path
-  - Profile flows: picker-assisted allowlist editing, app/provider selection, inline validation, undo snackbar
+  - Home flows: immediate Live start, full-screen cancel overlay, Dry Run start path
+  - Profile flows: uninstall package picker, delete-path editing, app/provider selection, inline validation, undo snackbar
   - Profile action policy flows: reorder actions, required flags, continue-on-failure toggles
   - Profile intent-action flows: add/edit/reorder intent steps, resolver test, validation errors
   - Profile advanced shell flows: add/edit/reorder commands, dangerous mode warnings, biometric/PIN confirmation gate
@@ -410,6 +419,7 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
   - selected message-app provider success path + skip fallback behavior when app unavailable
   - intent step execution success/failure paths (valid deep link, missing resolver, invalid URI)
   - advanced shell command execution on live run (safe fixtures) + skip behavior in Dry Run
+  - delete-path execution verified for both Shizuku path and All files access fallback path
   - destructive actions operate only on explicit safe fixtures
   - dry run confirms zero external side effects
   - locale and theme checks: English/Arabic RTL parity and dynamic-color readability on supported devices
