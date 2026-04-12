@@ -84,9 +84,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          script: |
-            mise x java -- ./gradlew :app:connectedDebugAndroidTest \
-              -Pandroid.testInstrumentationRunnerArguments.class=com.yshalsager.mafza.emergency.EmergencyTriggerSurfacesTest,com.yshalsager.mafza.emergency.steps.ActionStepsDeviceTest,com.yshalsager.mafza.profile.ProfileUiFlowTest
+          script: mise x java -- ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.yshalsager.mafza.emergency.EmergencyTriggerSurfacesTest,com.yshalsager.mafza.emergency.steps.ActionStepsDeviceTest,com.yshalsager.mafza.profile.ProfileUiFlowTest
 
   validate_fastlane_metadata:
     name: Validate Fastlane Metadata
