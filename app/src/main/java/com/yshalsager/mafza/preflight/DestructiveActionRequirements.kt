@@ -10,10 +10,6 @@ internal fun requires_shizuku_for_live_destructive_actions(profile: EmergencyPro
 
     val uninstall_requires_shizuku = is_action_enabled(profile.action_policies, ActionId.UNINSTALL_APPS) &&
         profile.uninstall_allowlist.any { package_name -> package_name.trim().isNotEmpty() }
-    val delete_path_requires_shizuku = is_action_enabled(profile.action_policies, ActionId.DELETE_PATHS) &&
-        profile.delete_allowlist.any { target ->
-            target.path.trim().isNotEmpty() && target.content_uri?.trim().isNullOrEmpty()
-        }
     val advanced_shell_requires_shizuku = is_action_enabled(profile.action_policies, ActionId.ADVANCED_SHELL_COMMANDS) &&
         profile.advanced_shell_commands.any { command ->
             if (!command.enabled) return@any false
@@ -25,7 +21,6 @@ internal fun requires_shizuku_for_live_destructive_actions(profile: EmergencyPro
         profile.self_uninstall_enabled
 
     return uninstall_requires_shizuku ||
-        delete_path_requires_shizuku ||
         advanced_shell_requires_shizuku ||
         self_uninstall_requires_shizuku
 }

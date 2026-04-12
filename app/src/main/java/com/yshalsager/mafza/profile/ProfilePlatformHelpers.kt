@@ -65,17 +65,6 @@ internal fun query_installed_app_packages(context: Context): List<InstalledPacka
         .sortedBy { it.label.lowercase() }
 }
 
-internal fun persist_delete_target_uri_permission(
-    context: Context,
-    selected_uri: Uri
-): Boolean {
-    return runCatching {
-        val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-        context.contentResolver.takePersistableUriPermission(selected_uri, flags)
-        true
-    }.getOrDefault(false)
-}
-
 internal fun resolve_contact_phone_number(
     context: Context,
     contact_uri: Uri

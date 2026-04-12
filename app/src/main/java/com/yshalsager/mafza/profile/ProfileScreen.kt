@@ -126,8 +126,6 @@ internal fun ProfileScreen(
     var sms_contact_picker_error_res_id by remember { mutableStateOf<Int?>(null) }
     var message_binding_picker_index by remember { mutableStateOf<Int?>(null) }
     var uninstall_package_picker_index by remember { mutableStateOf<Int?>(null) }
-    var delete_target_picker_index by remember { mutableStateOf<Int?>(null) }
-    var delete_target_picker_error_res_id by remember { mutableStateOf<Int?>(null) }
     var show_add_action_sheet by remember { mutableStateOf(false) }
     var add_action_group by remember { mutableStateOf<ProfileActionGroup?>(null) }
     var recent_add_action_types by remember { mutableStateOf<List<ProfileActionRowType>>(emptyList()) }
@@ -244,70 +242,6 @@ internal fun ProfileScreen(
             if (index == target_index) picked_number else recipient
         }
         sms_contact_picker_error_res_id = null
-        saved_successfully = false
-        save_error_message = null
-    }
-
-    val delete_target_file_picker_launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { selected_uri ->
-        val target_index = delete_target_picker_index
-        delete_target_picker_index = null
-        if (selected_uri == null || target_index == null || target_index !in delete_targets.indices) return@rememberLauncherForActivityResult
-
-        val persisted = persist_delete_target_uri_permission(
-            context = app_context,
-            selected_uri = selected_uri
-        )
-        if (!persisted) {
-            delete_target_picker_error_res_id = R.string.profile_delete_target_pick_permission_failed
-            return@rememberLauncherForActivityResult
-        }
-
-        delete_targets = delete_targets.mapIndexed { index, target ->
-            if (index == target_index) {
-                target.copy(
-                    path = "",
-                    content_uri = selected_uri.toString(),
-                    recursive = false
-                )
-            } else {
-                target
-            }
-        }
-        delete_target_picker_error_res_id = null
-        saved_successfully = false
-        save_error_message = null
-    }
-
-    val delete_target_directory_picker_launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { selected_uri ->
-        val target_index = delete_target_picker_index
-        delete_target_picker_index = null
-        if (selected_uri == null || target_index == null || target_index !in delete_targets.indices) return@rememberLauncherForActivityResult
-
-        val persisted = persist_delete_target_uri_permission(
-            context = app_context,
-            selected_uri = selected_uri
-        )
-        if (!persisted) {
-            delete_target_picker_error_res_id = R.string.profile_delete_target_pick_permission_failed
-            return@rememberLauncherForActivityResult
-        }
-
-        delete_targets = delete_targets.mapIndexed { index, target ->
-            if (index == target_index) {
-                target.copy(
-                    path = "",
-                    content_uri = selected_uri.toString(),
-                    recursive = true
-                )
-            } else {
-                target
-            }
-        }
-        delete_target_picker_error_res_id = null
         saved_successfully = false
         save_error_message = null
     }
@@ -720,7 +654,6 @@ internal fun ProfileScreen(
             is DeleteTargetActionRow -> {
                 val bounded_index = target_index.coerceIn(0, delete_targets.lastIndex)
                 delete_targets = move_item(delete_targets, row.item_index, bounded_index)
-                delete_target_picker_error_res_id = null
             }
             is ShellCommandActionRow -> {
                 val bounded_index = target_index.coerceIn(0, advanced_shell_commands.lastIndex)
@@ -770,7 +703,6 @@ internal fun ProfileScreen(
             is DeleteTargetActionRow -> {
                 val updated_delete_targets = delete_targets.filterIndexed { index, _ -> index != row.item_index }
                 delete_targets = updated_delete_targets
-                delete_target_picker_error_res_id = null
                 disable_action_policy_if_empty(ActionId.DELETE_PATHS, updated_delete_targets.isNotEmpty())
             }
             is ShellCommandActionRow -> {
@@ -900,7 +832,6 @@ internal fun ProfileScreen(
         triggers_enabled = profile.triggers_enabled
         self_uninstall_enabled = profile.self_uninstall_enabled
         sms_contact_picker_error_res_id = null
-        delete_target_picker_error_res_id = null
         show_add_action_sheet = false
         add_action_group = null
         editing_action_row_id = null
@@ -1158,7 +1089,6 @@ internal fun ProfileScreen(
         intent_actions = intent_actions,
         uninstall_packages = uninstall_packages,
         delete_targets = delete_targets,
-        delete_target_picker_error_res_id = delete_target_picker_error_res_id,
         advanced_shell_commands = advanced_shell_commands,
         self_uninstall_enabled = self_uninstall_enabled,
         on_dismiss = { editing_action_row_id = null },
@@ -1176,15 +1106,6 @@ internal fun ProfileScreen(
         on_update_uninstall_packages = { uninstall_packages = it },
         on_open_uninstall_package_picker = { index -> uninstall_package_picker_index = index },
         on_update_delete_targets = { delete_targets = it },
-        on_update_delete_target_picker_error = { delete_target_picker_error_res_id = it },
-        on_pick_delete_file = { index ->
-            delete_target_picker_index = index
-            delete_target_file_picker_launcher.launch(arrayOf("*/*"))
-        },
-        on_pick_delete_directory = { index ->
-            delete_target_picker_index = index
-            delete_target_directory_picker_launcher.launch(null)
-        },
         on_update_advanced_shell_commands = { advanced_shell_commands = it },
         on_toggle_self_uninstall_enabled = { enabled ->
             if (enabled && !self_uninstall_enabled) {

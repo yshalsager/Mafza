@@ -10,13 +10,15 @@ import com.yshalsager.mafza.core.contracts.StepBranch
 import com.yshalsager.mafza.core.contracts.StepContext
 import com.yshalsager.mafza.core.contracts.StepResult
 import com.yshalsager.mafza.core.contracts.StepStatus
+import android.os.Build
+import android.os.Environment
 import java.io.File
 import java.nio.file.Files
 import kotlinx.coroutines.withTimeoutOrNull
 
 class DeletePathsStep(
     private val command_executor: PrivilegedCommandExecutor,
-    private val content_uri_delete_executor: ContentUriDeleteExecutor = UnavailableContentUriDeleteExecutor,
+    private val has_all_files_access_checker: (() -> Boolean)? = null,
     private val now_provider: () -> Long = { System.currentTimeMillis() }
 ) : PolicyBoundEmergencyStep {
     override val action_id: ActionId = ActionId.DELETE_PATHS
@@ -114,10 +116,6 @@ class DeletePathsStep(
     }
 
     private fun is_valid_target(target: DeleteTarget): Boolean {
-        val has_path = target.path.trim().isNotEmpty()
-        val has_content_uri = target.content_uri?.trim().isNullOrEmpty().not()
-        if (has_path == has_content_uri) return false
-        if (has_content_uri) return is_valid_content_uri_target(target)
         return is_valid_path_target(target)
     }
 
@@ -134,40 +132,63 @@ class DeletePathsStep(
         return true
     }
 
-    private fun is_valid_content_uri_target(target: DeleteTarget): Boolean {
-        val raw_content_uri = target.content_uri?.trim().orEmpty()
-        if (raw_content_uri.isEmpty()) return false
-        return raw_content_uri.startsWith("content://", ignoreCase = true)
-    }
-
     private suspend fun execute_delete_target(target: DeleteTarget): PrivilegedCommandResult {
-        val raw_content_uri = target.content_uri?.trim().orEmpty()
-        if (raw_content_uri.isNotEmpty()) {
-            return content_uri_delete_executor.execute_delete(
-                target = target,
-                timeout_seconds = DELETE_TIMEOUT_SECONDS
-            )
+        if (command_executor.is_available()) {
+            val target_path = target.path.trim()
+            return if (target.recursive) {
+                command_executor.execute_argv(
+                    argv = listOf("rm", "-rf", "--", target_path),
+                    timeout_seconds = DELETE_TIMEOUT_SECONDS
+                )
+            } else {
+                execute_non_recursive_delete(target_path)
+            }
         }
 
-        if (!command_executor.is_available()) {
+        if (!has_all_files_access()) {
             return PrivilegedCommandResult(
                 exit_code = 1,
                 stdout = "",
-                stderr = "shizuku_unavailable",
+                stderr = "all_files_access_required",
                 timed_out = false,
                 unavailable = true
             )
         }
 
         val target_path = target.path.trim()
-        return if (target.recursive) {
-            command_executor.execute_argv(
-                argv = listOf("rm", "-rf", "--", target_path),
-                timeout_seconds = DELETE_TIMEOUT_SECONDS
+        return execute_local_path_delete(target_path = target_path, recursive = target.recursive)
+    }
+
+    private fun has_all_files_access(): Boolean {
+        val override_checker = has_all_files_access_checker
+        if (override_checker != null) return override_checker()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return true
+        return runCatching { Environment.isExternalStorageManager() }.getOrDefault(false)
+    }
+
+    private fun execute_local_path_delete(target_path: String, recursive: Boolean): PrivilegedCommandResult {
+        val target_file = File(target_path)
+        if (!target_file.exists()) {
+            return PrivilegedCommandResult(
+                exit_code = 0,
+                stdout = "",
+                stderr = "",
+                timed_out = false,
+                unavailable = false
             )
-        } else {
-            execute_non_recursive_delete(target_path)
         }
+        val deleted = if (recursive) {
+            target_file.deleteRecursively()
+        } else {
+            target_file.delete()
+        }
+        return PrivilegedCommandResult(
+            exit_code = if (deleted) 0 else 1,
+            stdout = "",
+            stderr = if (deleted) "" else "delete_failed",
+            timed_out = false,
+            unavailable = false
+        )
     }
 
     private suspend fun execute_non_recursive_delete(target_path: String): PrivilegedCommandResult {

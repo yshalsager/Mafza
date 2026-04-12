@@ -73,6 +73,7 @@ internal fun PreflightCard(
     shizuku_state: ShizukuPermissionState,
     on_open_profile_setup: () -> Unit,
     on_request_runtime_permissions: (List<String>) -> Unit,
+    on_request_all_files_access: () -> Unit,
     on_refresh: () -> Unit,
     on_request_permission: () -> Unit
 ) {
@@ -86,6 +87,7 @@ internal fun PreflightCard(
     }
     val invalid_policy_keys = preflight_report.live_blocking_issues.contains("action_policy_invalid_or_duplicate_policy_key")
     val shizuku_required = preflight_report.live_blocking_issues.contains("shizuku_permission_required_for_destructive_actions")
+    val all_files_access_required = preflight_report.live_blocking_issues.contains("missing_all_files_access_permission")
     val needs_profile_setup = missing_recipients || missing_or_duplicate_binding_id || invalid_policy_keys
     val runtime_permissions_to_request = buildList {
         if (missing_location_permission) {
@@ -126,6 +128,7 @@ internal fun PreflightCard(
                     preflight_report.live_ready -> stringResource(R.string.preflight_ready)
                     shizuku_required && !shizuku_state.is_running -> stringResource(R.string.preflight_shizuku_not_running)
                     shizuku_required && !shizuku_state.is_permission_granted -> stringResource(R.string.preflight_shizuku_permission_required)
+                    all_files_access_required -> stringResource(R.string.preflight_all_files_access_required)
                     preflight_report.live_blocking_issues.isNotEmpty() -> preflight_report.live_blocking_issues.joinToString("\n")
                     else -> stringResource(R.string.preflight_unknown)
                 },
@@ -158,6 +161,14 @@ internal fun PreflightCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(text = stringResource(R.string.preflight_request_runtime_permissions))
+                }
+            }
+            if (all_files_access_required) {
+                Button(
+                    onClick = on_request_all_files_access,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(text = stringResource(R.string.preflight_request_all_files_access))
                 }
             }
             if (needs_profile_setup) {

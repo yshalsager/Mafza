@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
 import androidx.core.content.ContextCompat
 import com.yshalsager.mafza.emergency.providers.ActionProviderRegistry
 import com.yshalsager.mafza.emergency.telegram.RealTelegramBotClient
@@ -39,6 +41,7 @@ class PreflightValidator(
     private val has_background_location_permission_checker: (() -> Boolean)? = null,
     private val has_sms_permission_checker: (() -> Boolean)? = null,
     private val has_phone_state_permission_checker: (() -> Boolean)? = null,
+    private val has_all_files_access_checker: (() -> Boolean)? = null,
     private val binding_available_checker: ((ActionBinding) -> Boolean)? = null,
     private val intent_resolver: ((IntentActionSpec) -> Boolean)? = null
 ) {
@@ -96,6 +99,10 @@ class PreflightValidator(
         val shizuku_required_for_live = requires_shizuku_for_live_destructive_actions(profile)
         if (shizuku_required_for_live && (!shizuku_permission_state.is_running || !shizuku_permission_state.is_permission_granted)) {
             live_blocking_issues += "shizuku_permission_required_for_destructive_actions"
+        }
+        val shizuku_available_for_live = shizuku_permission_state.is_running && shizuku_permission_state.is_permission_granted
+        if (requires_all_files_access_for_live_delete_paths(profile) && !shizuku_available_for_live && !has_all_files_access()) {
+            live_blocking_issues += "missing_all_files_access_permission"
         }
 
         validate_action_bindings(profile, live_blocking_issues, dry_run_blocking_issues, warnings)
@@ -306,6 +313,13 @@ class PreflightValidator(
         return ContextCompat.checkSelfPermission(app_context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
     }
 
+    private fun has_all_files_access(): Boolean {
+        val override_checker = has_all_files_access_checker
+        if (override_checker != null) return override_checker()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return true
+        return runCatching { Environment.isExternalStorageManager() }.getOrDefault(false)
+    }
+
     private fun is_binding_available(binding: ActionBinding): Boolean {
         val override_checker = binding_available_checker
         if (override_checker != null) return override_checker(binding)
@@ -386,10 +400,6 @@ class PreflightValidator(
     }
 
     private fun delete_target_valid(target: DeleteTarget): Boolean {
-        val has_path = target.path.trim().isNotEmpty()
-        val has_content_uri = target.content_uri?.trim().isNullOrEmpty().not()
-        if (has_path == has_content_uri) return false
-        if (has_content_uri) return delete_content_uri_target_valid(target)
         return delete_path_target_valid(target)
     }
 
@@ -406,17 +416,10 @@ class PreflightValidator(
         return true
     }
 
-    private fun delete_content_uri_target_valid(target: DeleteTarget): Boolean {
-        val raw_content_uri = target.content_uri?.trim().orEmpty()
-        if (raw_content_uri.isEmpty()) return false
-        if (!raw_content_uri.startsWith("content://", ignoreCase = true)) return false
-
-        val without_scheme = raw_content_uri.substring(10)
-        val authority = without_scheme.substringBefore('/').trim()
-        if (authority.isEmpty()) return false
-
-        val normalized_content_uri = raw_content_uri.lowercase()
-        return normalized_content_uri.contains("/tree/") || normalized_content_uri.contains("/document/")
+    private fun requires_all_files_access_for_live_delete_paths(profile: EmergencyProfile): Boolean {
+        if (!profile.destructive_actions_enabled) return false
+        if (!is_action_enabled(profile.action_policies, ActionId.DELETE_PATHS)) return false
+        return profile.delete_allowlist.any { target -> target.path.trim().isNotEmpty() }
     }
 
     private fun advanced_shell_commands_valid(profile: EmergencyProfile): Boolean {

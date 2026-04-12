@@ -218,9 +218,9 @@
     <string name='profile_uninstall_remove_action'>Remove Package</string>
     <string name='profile_uninstall_add_action'>Add Package</string>
     <string name='profile_delete_targets_title'>Delete Targets</string>
-    <string name='profile_delete_targets_subtitle'>Add absolute paths (Shizuku) or content URIs (Android picker) to remove during destructive runs.</string>
+    <string name='profile_delete_targets_subtitle'>Add absolute paths to remove during destructive runs. Works with Shizuku or All files access.</string>
     <string name='profile_delete_target_item'>Target %1$d</string>
-    <string name='profile_delete_target_path_label'>Absolute Path (Shizuku)</string>
+    <string name='profile_delete_target_path_label'>Absolute Path</string>
     <string name='profile_delete_target_path_placeholder'>/storage/emulated/0/Download/example.txt</string>
     <string name='profile_delete_target_content_uri_label'>Content URI (Android)</string>
     <string name='profile_delete_target_content_uri_placeholder'>content://…</string>
@@ -234,6 +234,7 @@
     <string name='profile_delete_target_pick_unresolved'>Could not resolve absolute file path from picker selection. Enter the path manually.</string>
     <string name='profile_delete_target_pick_permission_failed'>Could not persist file access permission from picker selection.</string>
     <string name='profile_delete_target_picker_hint'>Picker mode stores a content URI and works without Shizuku.</string>
+    <string name='profile_delete_target_all_files_access_hint'>Use absolute paths. If Shizuku is unavailable, grant All files access from Preflight.</string>
     <string name='profile_delete_pick_file_action'>Pick File</string>
     <string name='profile_delete_pick_directory_action'>Pick Directory</string>
     <string name='profile_delete_move_up_action'>Move Up</string>
@@ -338,6 +339,7 @@
     <string name='preflight_ready'>Ready for Live execution.</string>
     <string name='preflight_shizuku_not_running'>Shizuku is not running. Start Shizuku, then refresh status.</string>
     <string name='preflight_shizuku_permission_required'>Shizuku permission is required to enable destructive live actions.</string>
+    <string name='preflight_all_files_access_required'>All files access is required for path delete actions when Shizuku is unavailable.</string>
     <string name='preflight_shizuku_status_label'>Shizuku status</string>
     <string name='preflight_shizuku_status_unavailable'>Not available</string>
     <string name='preflight_shizuku_status_available'>Available</string>
@@ -347,6 +349,7 @@
     <string name='preflight_refresh'>Refresh status</string>
     <string name='preflight_request_permission'>Request Shizuku permission</string>
     <string name='preflight_request_runtime_permissions'>Grant required runtime permissions</string>
+    <string name='preflight_request_all_files_access'>Grant All files access</string>
     <string name='preflight_open_profile_setup'>Open profile setup</string>
     <string name='run_actions_title'>Run</string>
     <string name='run_live_action'>Run Live</string>

@@ -79,6 +79,7 @@ internal fun HomeScreen(
     shizuku_state: ShizukuPermissionState,
     on_open_profile_setup: () -> Unit,
     on_request_runtime_permissions: (List<String>) -> Unit,
+    on_request_all_files_access: () -> Unit,
     on_refresh_shizuku: () -> Unit,
     on_request_shizuku_permission: () -> Unit,
     on_run_live: () -> Unit,
@@ -110,6 +111,7 @@ internal fun HomeScreen(
             shizuku_state = shizuku_state,
             on_open_profile_setup = on_open_profile_setup,
             on_request_runtime_permissions = on_request_runtime_permissions,
+            on_request_all_files_access = on_request_all_files_access,
             on_refresh = on_refresh_shizuku,
             on_request_permission = on_request_shizuku_permission
         )

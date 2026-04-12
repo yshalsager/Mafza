@@ -42,7 +42,10 @@ class DeletePathsStepTest {
         val temp_file = create_temp_file()
         val canonical_path = temp_file.canonicalPath
         val fake_executor = FakeCommandExecutor(available = false)
-        val step = DeletePathsStep(command_executor = fake_executor)
+        val step = DeletePathsStep(
+            command_executor = fake_executor,
+            has_all_files_access_checker = { false }
+        )
 
         val result = step.execute(
             test_step_context(
@@ -59,12 +62,13 @@ class DeletePathsStepTest {
     }
 
     @Test
-    fun `deletes content uri targets without shizuku`() = runTest {
+    fun `deletes target using app file access when shizuku is unavailable and all-files access is granted`() = runTest {
+        val temp_file = create_temp_file()
+        val canonical_path = temp_file.canonicalPath
         val fake_executor = FakeCommandExecutor(available = false)
-        val fake_content_uri_executor = FakeContentUriDeleteExecutor()
         val step = DeletePathsStep(
             command_executor = fake_executor,
-            content_uri_delete_executor = fake_content_uri_executor
+            has_all_files_access_checker = { true }
         )
 
         val result = step.execute(
@@ -73,9 +77,8 @@ class DeletePathsStepTest {
                     destructive_actions_enabled = true,
                     delete_allowlist = listOf(
                         DeleteTarget(
-                            path = "",
-                            content_uri = "content://com.example.provider/tree/root",
-                            recursive = true
+                            path = canonical_path,
+                            recursive = false
                         )
                     )
                 )
@@ -84,7 +87,7 @@ class DeletePathsStepTest {
 
         assertEquals(StepStatus.SUCCESS, result.status)
         assertTrue(fake_executor.argv_calls.isEmpty())
-        assertEquals(1, fake_content_uri_executor.calls.size)
+        assertFalse(temp_file.exists())
     }
 
     @Test
@@ -265,25 +268,6 @@ class DeletePathsStepTest {
         override suspend fun execute_argv(argv: List<String>, timeout_seconds: Int): PrivilegedCommandResult {
             argv_calls += argv
             return execute_block(argv, timeout_seconds)
-        }
-    }
-
-    private class FakeContentUriDeleteExecutor(
-        private val execute_block: suspend (target: DeleteTarget, timeout_seconds: Int) -> PrivilegedCommandResult = { _, _ ->
-            PrivilegedCommandResult(
-                exit_code = 0,
-                stdout = "",
-                stderr = "",
-                timed_out = false,
-                unavailable = false
-            )
-        }
-    ) : ContentUriDeleteExecutor {
-        val calls = mutableListOf<DeleteTarget>()
-
-        override suspend fun execute_delete(target: DeleteTarget, timeout_seconds: Int): PrivilegedCommandResult {
-            calls += target
-            return execute_block(target, timeout_seconds)
         }
     }
 }

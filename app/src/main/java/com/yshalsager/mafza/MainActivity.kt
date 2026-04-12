@@ -1,7 +1,10 @@
 package com.yshalsager.mafza
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -283,6 +286,22 @@ private fun MafzaApp(
                         },
                         on_request_runtime_permissions = { permissions ->
                             runtime_permission_launcher.launch(permissions.toTypedArray())
+                        },
+                        on_request_all_files_access = {
+                            val app_settings_intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                                data = Uri.parse("package:${app_context.packageName}")
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            val fallback_intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            runCatching {
+                                app_context.startActivity(app_settings_intent)
+                            }.onFailure {
+                                runCatching {
+                                    app_context.startActivity(fallback_intent)
+                                }
+                            }
                         },
                         on_refresh_shizuku = {
                             preflight_refresh_nonce += 1

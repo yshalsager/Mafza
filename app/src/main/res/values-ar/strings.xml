@@ -193,9 +193,9 @@
     <string name='profile_uninstall_remove_action'>إزالة الحزمة</string>
     <string name='profile_uninstall_add_action'>إضافة حزمة</string>
     <string name='profile_delete_targets_title'>أهداف الحذف</string>
-    <string name='profile_delete_targets_subtitle'>أضف مسارات مطلقة (Shizuku) أو Content URI من منتقي أندرويد لحذفها أثناء التشغيلات التدميرية.</string>
+    <string name='profile_delete_targets_subtitle'>أضف مسارات مطلقة لحذفها أثناء التشغيلات التدميرية. تعمل عبر Shizuku أو صلاحية الوصول الكامل للملفات.</string>
     <string name='profile_delete_target_item'>الهدف %1$d</string>
-    <string name='profile_delete_target_path_label'>المسار المطلق (Shizuku)</string>
+    <string name='profile_delete_target_path_label'>المسار المطلق</string>
     <string name='profile_delete_target_path_placeholder'>/storage/emulated/0/Download/example.txt</string>
     <string name='profile_delete_target_content_uri_label'>Content URI (أندرويد)</string>
     <string name='profile_delete_target_content_uri_placeholder'>content://…</string>
@@ -209,6 +209,7 @@
     <string name='profile_delete_target_pick_unresolved'>تعذر استخراج مسار ملفات مطلق من اختيار المتصفح. أدخل المسار يدويًا.</string>
     <string name='profile_delete_target_pick_permission_failed'>تعذر حفظ صلاحية الوصول من اختيار منتقي الملفات.</string>
     <string name='profile_delete_target_picker_hint'>وضع المنتقي يحفظ Content URI ويعمل بدون Shizuku.</string>
+    <string name='profile_delete_target_all_files_access_hint'>استخدم المسارات المطلقة. إذا لم يتوفر Shizuku، امنح صلاحية الوصول الكامل للملفات من فحص الجاهزية.</string>
     <string name='profile_delete_pick_file_action'>اختيار ملف</string>
     <string name='profile_delete_pick_directory_action'>اختيار مجلد</string>
     <string name='profile_delete_move_up_action'>تحريك للأعلى</string>
@@ -313,6 +314,7 @@
     <string name='preflight_ready'>جاهز للتنفيذ المباشر.</string>
     <string name='preflight_shizuku_not_running'>Shizuku غير قيد التشغيل. شغّل Shizuku ثم حدّث الحالة.</string>
     <string name='preflight_shizuku_permission_required'>صلاحية Shizuku مطلوبة لتفعيل الإجراءات التدميرية في التشغيل المباشر.</string>
+    <string name='preflight_all_files_access_required'>صلاحية الوصول الكامل للملفات مطلوبة لإجراءات حذف المسارات عند عدم توفر Shizuku.</string>
     <string name='preflight_shizuku_status_label'>حالة Shizuku</string>
     <string name='preflight_shizuku_status_unavailable'>غير متاح</string>
     <string name='preflight_shizuku_status_available'>متاح</string>
@@ -322,6 +324,7 @@
     <string name='preflight_refresh'>تحديث الحالة</string>
     <string name='preflight_request_permission'>طلب صلاحية Shizuku</string>
     <string name='preflight_request_runtime_permissions'>منح صلاحيات التشغيل المطلوبة</string>
+    <string name='preflight_request_all_files_access'>منح صلاحية الوصول الكامل للملفات</string>
     <string name='preflight_open_profile_setup'>فتح إعدادات الملف</string>
     <string name='run_actions_title'>التشغيل</string>
     <string name='run_live_action'>تشغيل مباشر</string>

@@ -125,12 +125,14 @@ class PreflightValidatorTest {
             has_location_permission = false,
             has_background_location_permission = false,
             has_sms_permission = false,
-            has_phone_state_permission = false
+            has_phone_state_permission = false,
+            has_all_files_access = false
         )
         val profile = EmergencyProfile(
             sms_recipients = listOf("+20123456789"),
             destructive_actions_enabled = true,
-            uninstall_allowlist = listOf("com.example.target")
+            uninstall_allowlist = listOf("com.example.target"),
+            delete_allowlist = listOf(DeleteTarget(path = "/storage/emulated/0/Download/test.txt", recursive = false))
         )
 
         val report = validator.validate(
@@ -148,6 +150,7 @@ class PreflightValidatorTest {
         assertTrue(report.live_blocking_issues.contains("missing_read_phone_state_permission"))
         assertTrue(report.live_blocking_issues.contains("missing_send_sms_permission"))
         assertTrue(report.live_blocking_issues.contains("shizuku_permission_required_for_destructive_actions"))
+        assertTrue(report.live_blocking_issues.contains("missing_all_files_access_permission"))
     }
 
     @Test
@@ -534,16 +537,15 @@ class PreflightValidatorTest {
     }
 
     @Test
-    fun `saf delete target does not require shizuku permission`() {
-        val validator = validator()
+    fun `delete path target requires all files access when shizuku is unavailable`() {
+        val validator = validator(has_all_files_access = false)
         val profile = EmergencyProfile(
             sms_recipients = listOf("+20123456789"),
             destructive_actions_enabled = true,
             delete_allowlist = listOf(
                 DeleteTarget(
-                    path = "",
-                    content_uri = "content://com.android.externalstorage.documents/tree/primary%3ADownload",
-                    recursive = true
+                    path = "/storage/emulated/0/Download/example.txt",
+                    recursive = false
                 )
             )
         )
@@ -556,19 +558,19 @@ class PreflightValidatorTest {
             )
         )
 
-        assertTrue(report.live_ready)
+        assertFalse(report.live_ready)
         assertFalse(report.live_blocking_issues.contains("shizuku_permission_required_for_destructive_actions"))
+        assertTrue(report.live_blocking_issues.contains("missing_all_files_access_permission"))
     }
 
     @Test
-    fun `non saf content uri delete target blocks both live and dry run`() {
+    fun `empty delete path blocks both live and dry run`() {
         val validator = validator()
         val profile = EmergencyProfile(
             sms_recipients = listOf("+20123456789"),
             delete_allowlist = listOf(
                 DeleteTarget(
                     path = "",
-                    content_uri = "content://com.example.provider/items/123",
                     recursive = false
                 )
             )
@@ -648,6 +650,7 @@ class PreflightValidatorTest {
         has_background_location_permission: Boolean = true,
         has_sms_permission: Boolean = true,
         has_phone_state_permission: Boolean = true,
+        has_all_files_access: Boolean = true,
         binding_available: Boolean = true,
         telegram_bot_client: TelegramBotClient = FakeTelegramBotClient(ready = true)
     ): PreflightValidator {
@@ -659,6 +662,7 @@ class PreflightValidatorTest {
             has_background_location_permission_checker = { has_background_location_permission },
             has_sms_permission_checker = { has_sms_permission },
             has_phone_state_permission_checker = { has_phone_state_permission },
+            has_all_files_access_checker = { has_all_files_access },
             binding_available_checker = { binding_available },
             intent_resolver = { true }
         )

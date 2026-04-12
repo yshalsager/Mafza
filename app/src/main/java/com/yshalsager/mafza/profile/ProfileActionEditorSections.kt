@@ -586,11 +586,7 @@ internal fun UninstallPackageEditorSection(
 internal fun DeleteTargetEditorSection(
     row: DeleteTargetActionRow,
     delete_targets: List<EditableDeleteTarget>,
-    delete_target_picker_error_res_id: Int?,
     on_update_delete_targets: (List<EditableDeleteTarget>) -> Unit,
-    on_update_delete_target_picker_error: (Int?) -> Unit,
-    on_pick_delete_file: (Int) -> Unit,
-    on_pick_delete_directory: (Int) -> Unit,
     show_advanced_execution_rule: Boolean,
     on_toggle_advanced: () -> Unit,
     action_rule_for: (ActionId) -> EditableActionPolicyRow,
@@ -604,36 +600,13 @@ internal fun DeleteTargetEditorSection(
         onValueChange = { value ->
             on_update_delete_targets(
                 delete_targets.update_item(row.item_index) { current_target ->
-                    current_target.copy(
-                        path = value,
-                        content_uri = if (value.trim().isNotEmpty()) "" else current_target.content_uri
-                    )
+                    current_target.copy(path = value)
                 }
             )
-            on_update_delete_target_picker_error(null)
             on_mark_profile_dirty()
         },
         label = { Text(text = stringResource(R.string.profile_delete_target_path_label)) },
         placeholder = { Text(text = stringResource(R.string.profile_delete_target_path_placeholder)) },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true
-    )
-    OutlinedTextField(
-        value = delete_target.content_uri,
-        onValueChange = { value ->
-            on_update_delete_targets(
-                delete_targets.update_item(row.item_index) { current_target ->
-                    current_target.copy(
-                        content_uri = value,
-                        path = if (value.trim().isNotEmpty()) "" else current_target.path
-                    )
-                }
-            )
-            on_update_delete_target_picker_error(null)
-            on_mark_profile_dirty()
-        },
-        label = { Text(text = stringResource(R.string.profile_delete_target_content_uri_label)) },
-        placeholder = { Text(text = stringResource(R.string.profile_delete_target_content_uri_placeholder)) },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true
     )
@@ -659,38 +632,11 @@ internal fun DeleteTargetEditorSection(
             }
         )
     }
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        TextButton(
-            onClick = { on_pick_delete_file(row.item_index) },
-            modifier = Modifier.weight(1f)
-        ) {
-            Text(text = stringResource(R.string.profile_delete_pick_file_action))
-        }
-        TextButton(
-            onClick = { on_pick_delete_directory(row.item_index) },
-            modifier = Modifier.weight(1f)
-        ) {
-            Text(text = stringResource(R.string.profile_delete_pick_directory_action))
-        }
-    }
     Text(
-        text = stringResource(R.string.profile_delete_target_picker_hint),
+        text = stringResource(R.string.profile_delete_target_all_files_access_hint),
         style = MaterialTheme.typography.bodySmall
     )
-    if (delete_target_picker_error_res_id != null) {
-        Text(
-            text = stringResource(delete_target_picker_error_res_id),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error
-        )
-    }
-    val delete_target_error = delete_target_error_message(
-        path = delete_target.path,
-        content_uri = delete_target.content_uri
-    )
+    val delete_target_error = delete_target_error_message(path = delete_target.path)
     if (delete_target_error != null) {
         Text(
             text = delete_target_error,

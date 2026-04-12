@@ -47,7 +47,7 @@ internal fun build_profile_validation_result(
         trimmed.isNotEmpty() && !PROFILE_PACKAGE_NAME_REGEX.matches(trimmed)
     }
     val invalid_delete_target_count = delete_targets.count { target ->
-        (target.path.isNotBlank() || target.content_uri.isNotBlank()) && !delete_target_input_valid(target)
+        target.path.isNotBlank() && !delete_target_input_valid(target)
     }
     val invalid_shell_timeout_count = advanced_shell_commands.count { command ->
         !is_int_in_range(command.timeout_seconds, PROFILE_MIN_STEP_TIMEOUT_SECONDS, PROFILE_MAX_ADVANCED_SHELL_TIMEOUT_SECONDS)
@@ -85,7 +85,7 @@ internal fun build_profile_validation_result(
         trimmed.isNotEmpty() && !PROFILE_PACKAGE_NAME_REGEX.matches(trimmed)
     }
     val first_invalid_delete_target_index = delete_targets.indexOfFirst { target ->
-        (target.path.isNotBlank() || target.content_uri.isNotBlank()) && !delete_target_input_valid(target)
+        target.path.isNotBlank() && !delete_target_input_valid(target)
     }
     val first_invalid_shell_timeout_index = advanced_shell_commands.indexOfFirst { command ->
         !is_int_in_range(command.timeout_seconds, PROFILE_MIN_STEP_TIMEOUT_SECONDS, PROFILE_MAX_ADVANCED_SHELL_TIMEOUT_SECONDS)
