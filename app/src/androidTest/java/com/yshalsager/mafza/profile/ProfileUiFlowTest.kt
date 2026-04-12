@@ -7,7 +7,6 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.yshalsager.mafza.MainActivity
@@ -83,7 +82,9 @@ class ProfileUiFlowTest {
         compose_rule.onNodeWithText(profile_tab_label).performClick()
         compose_rule.onNodeWithContentDescription(add_action_label).performClick()
         compose_rule.onNodeWithText(choose_group_title).assertIsDisplayed()
-        pressBack()
+        compose_rule.activityRule.scenario.onActivity { activity ->
+            activity.onBackPressedDispatcher.onBackPressed()
+        }
 
         compose_rule.onNodeWithText(history_tab_label).performClick()
         compose_rule.onNodeWithText(profile_tab_label).performClick()
