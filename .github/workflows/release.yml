@@ -128,7 +128,34 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
+      - name: Validate release signing secrets
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [[ -n "$ANDROID_KEYSTORE_BASE64" ]] || { echo "Missing secret: ANDROID_KEYSTORE_BASE64"; exit 1; }
+          [[ -n "$ANDROID_KEYSTORE_PASSWORD" ]] || { echo "Missing secret: ANDROID_KEYSTORE_PASSWORD"; exit 1; }
+          [[ -n "$ANDROID_KEY_ALIAS" ]] || { echo "Missing secret: ANDROID_KEY_ALIAS"; exit 1; }
+          [[ -n "$ANDROID_KEY_PASSWORD" ]] || { echo "Missing secret: ANDROID_KEY_PASSWORD"; exit 1; }
+
+      - name: Decode release keystore
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+
       - name: Build artifacts
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: mise x java -- ./gradlew :app:assembleDebug :app:assembleRelease :app:bundleRelease
 
       - name: Collect artifacts

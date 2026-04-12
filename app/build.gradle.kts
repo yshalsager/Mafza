@@ -6,6 +6,17 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+val release_keystore_path = System.getenv("ANDROID_KEYSTORE_PATH")
+val release_keystore_password = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+val release_key_alias = System.getenv("ANDROID_KEY_ALIAS")
+val release_key_password = System.getenv("ANDROID_KEY_PASSWORD")
+val has_release_signing = listOf(
+    release_keystore_path,
+    release_keystore_password,
+    release_key_alias,
+    release_key_password
+).all { value -> !value.isNullOrBlank() }
+
 android {
     namespace = "com.yshalsager.mafza"
     compileSdk = 36
@@ -23,6 +34,17 @@ android {
         }
     }
 
+    signingConfigs {
+        if (has_release_signing) {
+            create("release") {
+                storeFile = file(release_keystore_path!!)
+                storePassword = release_keystore_password
+                keyAlias = release_key_alias
+                keyPassword = release_key_password
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
@@ -32,7 +54,7 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (has_release_signing) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
