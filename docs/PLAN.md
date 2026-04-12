@@ -119,7 +119,7 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
 
 ### Implementation Changes
 - Architecture/stack:
-  - `:app` + `:core`, MVVM + UseCases, Hilt, Compose + Navigation Compose, Foreground Service + Coroutines
+  - `:app` + `:core`, MVVM + UseCases, Compose + Navigation Compose, Foreground Service + Coroutines
   - DataStore (profile) + Room (run history), JDK 17 toolchain
   - dependency version policy: use latest stable releases at implementation start; do not use alpha/beta/rc versions
 - Entry/runtime:
@@ -364,7 +364,7 @@ Pre-v1 backward compatibility is not guaranteed; profile schema and policy-key b
   - `mise` for reproducible local tool/runtime setup
 - Android stack:
   - latest stable AGP, Kotlin, and Compose BOM at implementation start (no alpha/beta/rc)
-  - Hilt, Room + KSP, DataStore (custom JSON serializer), kotlinx serialization
+  - Room + KSP, DataStore (custom JSON serializer), kotlinx serialization
 - Code quality:
   - Android lint in CI/build validation
 - Testing stack:
