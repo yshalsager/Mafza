@@ -12,7 +12,10 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.yshalsager.mafza.R
 import com.yshalsager.mafza.emergency.steps.EmergencyStepsFactory
+import com.yshalsager.mafza.emergency.providers.ActionProviderRegistry
+import com.yshalsager.mafza.emergency.providers.IntentMessageAppProvider
 import com.yshalsager.mafza.core.contracts.ExecutionMode
+import com.yshalsager.mafza.core.contracts.EmergencyProfile
 import com.yshalsager.mafza.core.contracts.RunStatus
 import com.yshalsager.mafza.core.contracts.StepResult
 import com.yshalsager.mafza.core.contracts.TriggerSource
@@ -26,12 +29,15 @@ import com.yshalsager.mafza.core.data.profile.AndroidKeystoreProfileCipher
 import com.yshalsager.mafza.core.data.profile.ProfileDataStoreFactory
 import com.yshalsager.mafza.core.execution.DefaultEmergencyEngine
 import com.yshalsager.mafza.core.execution.EngineEvent
+import com.yshalsager.mafza.preflight.PreflightValidator
+import com.yshalsager.mafza.shizuku.ShizukuPermissionState
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import rikka.shizuku.Shizuku
 
 class EmergencyExecutionService : Service() {
     private val service_scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -49,6 +55,23 @@ class EmergencyExecutionService : Service() {
     private val history_store by lazy {
         RunHistoryStore(
             database = MafzaHistoryDatabase.create(applicationContext)
+        )
+    }
+    private val preflight_validator by lazy {
+        PreflightValidator(
+            app_context = applicationContext,
+            action_provider_registry = ActionProviderRegistry(
+                providers = listOf(IntentMessageAppProvider(app_context = applicationContext))
+            )
+        )
+    }
+    private val run_start_policy by lazy {
+        EmergencyRunStartPolicy(
+            profile_reader = {
+                runCatching { profile_store.read_profile() }
+                    .getOrNull()
+            },
+            live_preflight_checker = ::is_live_preflight_ready_for_external_trigger
         )
     }
 
@@ -84,7 +107,7 @@ class EmergencyExecutionService : Service() {
                     intent.getStringExtra(EmergencyServiceContract.EXTRA_EXECUTION_MODE)
                 )
                 service_scope.launch {
-                    val should_start = should_start_run(trigger)
+                    val should_start = should_start_run(trigger, requested_mode)
                     if (!should_start) {
                         stopSelfResult(start_id)
                         return@launch
@@ -218,10 +241,57 @@ class EmergencyExecutionService : Service() {
             .getOrDefault(ExecutionMode.LIVE)
     }
 
-    private suspend fun should_start_run(trigger: TriggerSource): Boolean {
-        if (trigger == TriggerSource.MANUAL_IN_APP) return true
-        return runCatching { profile_store.read_profile().triggers_enabled }
-            .getOrDefault(true)
+    private suspend fun should_start_run(
+        trigger: TriggerSource,
+        requested_mode: ExecutionMode
+    ): Boolean {
+        val should_start = run_start_policy.should_start(trigger, requested_mode)
+        if (!should_start) {
+            Log.i(
+                LOG_TAG,
+                "Run start blocked by start policy. trigger=$trigger mode=$requested_mode"
+            )
+        }
+        return should_start
+    }
+
+    private fun is_live_preflight_ready_for_external_trigger(profile: EmergencyProfile): Boolean {
+        val preflight_report = runCatching {
+            preflight_validator.validate(
+                profile = profile,
+                shizuku_permission_state = current_shizuku_permission_state(),
+                perform_telegram_reachability_checks = true
+            )
+        }.getOrNull()
+        if (preflight_report == null) {
+            Log.w(LOG_TAG, "External run preflight validation failed unexpectedly")
+            return false
+        }
+
+        val live_ready = preflight_report.live_ready
+        if (!live_ready) {
+            Log.i(
+                LOG_TAG,
+                "External run blocked by preflight issues: ${preflight_report.live_blocking_issues.joinToString()}"
+            )
+        }
+        return live_ready
+    }
+
+    private fun current_shizuku_permission_state(): ShizukuPermissionState {
+        return runCatching {
+            val is_running = Shizuku.pingBinder()
+            val is_permission_granted = is_running &&
+                Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
+            val should_show_permission_rationale = is_running &&
+                !is_permission_granted &&
+                Shizuku.shouldShowRequestPermissionRationale()
+            ShizukuPermissionState(
+                is_running = is_running,
+                is_permission_granted = is_permission_granted,
+                should_show_permission_rationale = should_show_permission_rationale
+            )
+        }.getOrDefault(ShizukuPermissionState())
     }
 
     private fun create_notification_channel() {
