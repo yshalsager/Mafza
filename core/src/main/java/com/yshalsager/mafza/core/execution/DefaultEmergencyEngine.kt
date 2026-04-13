@@ -38,6 +38,7 @@ class DefaultEmergencyEngine(
     }
 ) : EmergencyEngine {
     private val state_lock = Any()
+    private val event_lock = Any()
     private var active_run_state: ActiveRunState? = null
 
     override fun start(trigger: TriggerSource, mode: ExecutionMode): RunId {
@@ -82,7 +83,7 @@ class DefaultEmergencyEngine(
         var required_step_failed = false
         try {
             val started_at = clock()
-            on_event(
+            emit_event(
                 EngineEvent.RunStarted(
                     run_id = run_id,
                     trigger = trigger,
@@ -95,7 +96,7 @@ class DefaultEmergencyEngine(
                 profile_reader()
             } catch (cancelled_exception: CancellationException) {
                 if (is_cancelled_pre_start(run_id)) {
-                    on_event(EngineEvent.RunCancelledPreStart(run_id))
+                    emit_event(EngineEvent.RunCancelledPreStart(run_id))
                     complete_run(
                         run_id = run_id,
                         run_status = RunStatus.CANCELLED_PRE_START,
@@ -117,7 +118,7 @@ class DefaultEmergencyEngine(
             val remaining_cancel_window_millis = (cancel_window_ends_at - clock()).coerceAtLeast(0L)
 
             set_cancel_window_state(run_id, is_open = true)
-            on_event(
+            emit_event(
                 EngineEvent.CancelWindowOpened(
                     run_id = run_id,
                     window_ends_at_epoch_ms = cancel_window_ends_at
@@ -130,7 +131,7 @@ class DefaultEmergencyEngine(
                 set_cancel_window_state(run_id, is_open = false)
             }
             if (cancelled_pre_start) {
-                on_event(EngineEvent.RunCancelledPreStart(run_id))
+                emit_event(EngineEvent.RunCancelledPreStart(run_id))
                 complete_run(
                     run_id = run_id,
                     run_status = RunStatus.CANCELLED_PRE_START,
@@ -155,76 +156,38 @@ class DefaultEmergencyEngine(
             } catch (_: Throwable) {
                 emptyList()
             }
-            val planned_steps = build_step_execution_plan(steps, action_policies)
-            val blocked_branches = mutableSetOf<StepBranch>()
-            planned_steps.forEach { planned_step ->
-                val policy_step = planned_step.step as? PolicyBoundEmergencyStep
-                val branch = policy_step?.branch
-                val policy = planned_step.policy
-                val step_id = planned_step.step::class.simpleName ?: "unknown_step"
+            val plan = build_step_execution_plan(steps, action_policies)
+            val non_policy_outcome = execute_planned_steps_for_scope(
+                run_id = run_id,
+                planned_steps = plan.non_policy_steps,
+                step_context = step_context
+            )
+            step_statuses += non_policy_outcome.step_statuses
+            required_step_failed = required_step_failed || non_policy_outcome.required_step_failed
 
-                if (branch != null && branch in blocked_branches) {
-                    val skipped_result = StepResult(
-                        step_id = step_id,
-                        status = StepStatus.SKIPPED_UNAVAILABLE,
-                        details = "skipped_by_branch_stop",
-                        started_at_epoch_ms = clock(),
-                        finished_at_epoch_ms = clock()
-                    )
-                    step_statuses += skipped_result.status
-                    if (policy?.required == true && is_required_step_failure(skipped_result.status, mode)) {
-                        required_step_failed = true
-                    }
-                    on_event(EngineEvent.StepCompleted(run_id = run_id, step_result = skipped_result))
-                    return@forEach
-                }
+            val notify_outcome = execute_planned_steps_for_scope(
+                run_id = run_id,
+                planned_steps = plan.notify_steps,
+                step_context = step_context
+            )
+            step_statuses += notify_outcome.step_statuses
+            required_step_failed = required_step_failed || notify_outcome.required_step_failed
 
-                if (policy != null && !policy.enabled) {
-                    val disabled_result = StepResult(
-                        step_id = step_id,
-                        status = StepStatus.SKIPPED_UNAVAILABLE,
-                        details = "disabled_by_policy",
-                        started_at_epoch_ms = clock(),
-                        finished_at_epoch_ms = clock()
-                    )
-                    step_statuses += disabled_result.status
-                    if (policy.required && is_required_step_failure(disabled_result.status, mode)) {
-                        required_step_failed = true
-                    }
-                    on_event(EngineEvent.StepCompleted(run_id = run_id, step_result = disabled_result))
-                    return@forEach
-                }
+            val destructive_outcome = execute_planned_steps_for_scope(
+                run_id = run_id,
+                planned_steps = plan.destructive_steps,
+                step_context = step_context
+            )
+            step_statuses += destructive_outcome.step_statuses
+            required_step_failed = required_step_failed || destructive_outcome.required_step_failed
 
-                val step_start = clock()
-                val step_result = try {
-                    planned_step.step.execute(step_context)
-                } catch (cancelled_exception: CancellationException) {
-                    throw cancelled_exception
-                } catch (throwable: Throwable) {
-                    StepResult(
-                        step_id = step_id,
-                        status = StepStatus.FAILED,
-                        details = throwable.message,
-                        started_at_epoch_ms = step_start,
-                        finished_at_epoch_ms = clock()
-                    )
-                }
-
-                step_statuses += step_result.status
-                if (policy?.required == true && is_required_step_failure(step_result.status, mode)) {
-                    required_step_failed = true
-                }
-                on_event(EngineEvent.StepCompleted(run_id = run_id, step_result = step_result))
-
-                if (
-                    branch != null &&
-                    policy != null &&
-                    step_result.status in listOf(StepStatus.FAILED, StepStatus.TIMED_OUT) &&
-                    !policy.continue_on_failure
-                ) {
-                    blocked_branches += branch
-                }
-            }
+            val finalize_outcome = execute_planned_steps_for_scope(
+                run_id = run_id,
+                planned_steps = plan.finalize_steps,
+                step_context = step_context
+            )
+            step_statuses += finalize_outcome.step_statuses
+            required_step_failed = required_step_failed || finalize_outcome.required_step_failed
 
             val run_status = RunStatusDeriver.derive_run_status(
                 is_running = false,
@@ -235,7 +198,7 @@ class DefaultEmergencyEngine(
             complete_run(run_id = run_id, run_status = run_status, step_statuses = step_statuses)
         } catch (cancelled_exception: CancellationException) {
             if (is_cancelled_pre_start(run_id)) {
-                on_event(EngineEvent.RunCancelledPreStart(run_id))
+                emit_event(EngineEvent.RunCancelledPreStart(run_id))
                 complete_run(
                     run_id = run_id,
                     run_status = RunStatus.CANCELLED_PRE_START,
@@ -265,7 +228,7 @@ class DefaultEmergencyEngine(
 
     private fun complete_run(run_id: RunId, run_status: RunStatus, step_statuses: List<StepStatus>) {
         val completed_at = clock()
-        on_event(
+        emit_event(
             EngineEvent.RunCompleted(
                 run_id = run_id,
                 run_status = run_status,
@@ -275,10 +238,99 @@ class DefaultEmergencyEngine(
         )
     }
 
+    private suspend fun execute_planned_steps_for_scope(
+        run_id: RunId,
+        planned_steps: List<PlannedExecutionStep>,
+        step_context: StepContext
+    ): ScopeExecutionOutcome {
+        val step_statuses = mutableListOf<StepStatus>()
+        var required_step_failed = false
+        var branch_blocked = false
+
+        planned_steps.forEach { planned_step ->
+            val policy_step = planned_step.step as? PolicyBoundEmergencyStep
+            val policy = planned_step.policy
+            val step_id = planned_step.step::class.simpleName ?: "unknown_step"
+
+            if (branch_blocked) {
+                val skipped_result = StepResult(
+                    step_id = step_id,
+                    status = StepStatus.SKIPPED_UNAVAILABLE,
+                    details = "skipped_by_branch_stop",
+                    started_at_epoch_ms = clock(),
+                    finished_at_epoch_ms = clock()
+                )
+                step_statuses += skipped_result.status
+                if (policy?.required == true && is_required_step_failure(skipped_result.status, step_context.mode)) {
+                    required_step_failed = true
+                }
+                emit_event(EngineEvent.StepCompleted(run_id = run_id, step_result = skipped_result))
+                return@forEach
+            }
+
+            if (policy != null && !policy.enabled) {
+                val disabled_result = StepResult(
+                    step_id = step_id,
+                    status = StepStatus.SKIPPED_UNAVAILABLE,
+                    details = "disabled_by_policy",
+                    started_at_epoch_ms = clock(),
+                    finished_at_epoch_ms = clock()
+                )
+                step_statuses += disabled_result.status
+                if (policy.required && is_required_step_failure(disabled_result.status, step_context.mode)) {
+                    required_step_failed = true
+                }
+                emit_event(EngineEvent.StepCompleted(run_id = run_id, step_result = disabled_result))
+                return@forEach
+            }
+
+            val step_start = clock()
+            val step_result = try {
+                planned_step.step.execute(step_context)
+            } catch (cancelled_exception: CancellationException) {
+                throw cancelled_exception
+            } catch (throwable: Throwable) {
+                StepResult(
+                    step_id = step_id,
+                    status = StepStatus.FAILED,
+                    details = throwable.message,
+                    started_at_epoch_ms = step_start,
+                    finished_at_epoch_ms = clock()
+                )
+            }
+
+            step_statuses += step_result.status
+            if (policy?.required == true && is_required_step_failure(step_result.status, step_context.mode)) {
+                required_step_failed = true
+            }
+            emit_event(EngineEvent.StepCompleted(run_id = run_id, step_result = step_result))
+
+            if (
+                policy_step?.branch != null &&
+                policy != null &&
+                step_result.status in listOf(StepStatus.FAILED, StepStatus.TIMED_OUT) &&
+                !policy.continue_on_failure
+            ) {
+                branch_blocked = true
+            }
+        }
+
+        return ScopeExecutionOutcome(
+            step_statuses = step_statuses,
+            required_step_failed = required_step_failed
+        )
+    }
+
+    private fun emit_event(event: EngineEvent) {
+        synchronized(event_lock) {
+            on_event(event)
+        }
+    }
+
     private fun build_step_execution_plan(
         steps: List<EmergencyStep>,
         action_policies: List<ActionPolicy>
-    ): List<PlannedExecutionStep> {
+    ): StepExecutionPlan {
         val policy_index = build_policy_index(action_policies)
         val indexed_steps = steps.mapIndexed { index, step -> IndexedStep(index = index, step = step) }
         val non_policy_steps = indexed_steps
@@ -301,7 +353,12 @@ class DefaultEmergencyEngine(
             branch = StepBranch.FINALIZE
         )
 
-        return non_policy_steps + notify_steps + destructive_steps + finalize_steps
+        return StepExecutionPlan(
+            non_policy_steps = non_policy_steps,
+            notify_steps = notify_steps,
+            destructive_steps = destructive_steps,
+            finalize_steps = finalize_steps
+        )
     }
 
     private fun ordered_policy_steps_for_branch(
@@ -453,6 +510,18 @@ class DefaultEmergencyEngine(
         val policy: com.yshalsager.mafza.core.contracts.ActionPolicy?,
         val order: Int,
         val original_index: Int = Int.MAX_VALUE
+    )
+
+    private data class StepExecutionPlan(
+        val non_policy_steps: List<PlannedExecutionStep>,
+        val notify_steps: List<PlannedExecutionStep>,
+        val destructive_steps: List<PlannedExecutionStep>,
+        val finalize_steps: List<PlannedExecutionStep>
+    )
+
+    private data class ScopeExecutionOutcome(
+        val step_statuses: List<StepStatus>,
+        val required_step_failed: Boolean
     )
 
     private data class PolicyIndex(
