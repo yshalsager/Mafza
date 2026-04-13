@@ -65,20 +65,15 @@ class LocationStep(
         }
 
         val providers = resolve_providers()
-        if (providers.isEmpty()) {
-            return StepResult(
-                step_id = step_id,
-                status = StepStatus.SKIPPED_UNAVAILABLE,
-                details = "no_location_provider_enabled",
-                started_at_epoch_ms = started_at,
-                finished_at_epoch_ms = now_provider()
-            )
-        }
-
         val timeout_seconds = ctx.profile.location_timeout_seconds.coerceIn(1, 60)
         val timeout_millis = timeout_seconds * 1_000L
         val location_outcome = withTimeoutOrNull(timeout_millis) {
-            val location_snapshot = read_current_location(providers)
+            val providers_available = providers.isNotEmpty()
+            val location_snapshot = if (providers_available) {
+                read_current_location(providers)
+            } else {
+                null
+            }
             val cell_snapshot = read_cell_snapshot()
             val resolved_location = location_snapshot
                 ?: read_location_from_cell_lookup(
@@ -88,7 +83,8 @@ class LocationStep(
                 )
             LocationReadOutcome(
                 location_snapshot = resolved_location,
-                cell_snapshot = cell_snapshot
+                cell_snapshot = cell_snapshot,
+                providers_available = providers_available
             )
         }
         if (location_outcome == null) {
@@ -107,7 +103,11 @@ class LocationStep(
             return StepResult(
                 step_id = step_id,
                 status = StepStatus.SKIPPED_UNAVAILABLE,
-                details = "location_unavailable",
+                details = if (location_outcome.providers_available) {
+                    "location_unavailable"
+                } else {
+                    "no_location_provider_enabled"
+                },
                 started_at_epoch_ms = started_at,
                 finished_at_epoch_ms = finished_at
             )
@@ -384,6 +384,7 @@ class LocationStep(
 
     private data class LocationReadOutcome(
         val location_snapshot: LocationSnapshot?,
-        val cell_snapshot: CellSnapshot?
+        val cell_snapshot: CellSnapshot?,
+        val providers_available: Boolean
     )
 }

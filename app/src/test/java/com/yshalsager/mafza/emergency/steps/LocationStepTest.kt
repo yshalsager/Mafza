@@ -248,6 +248,48 @@ class LocationStepTest {
     }
 
     @Test
+    fun `uses OpenCellID lookup when no location provider is enabled`() = runTest {
+        val run_step_state = RunStepState()
+        var lookup_invocations = 0
+        val location_step = LocationStep(
+            app_context = null,
+            run_step_state = run_step_state,
+            has_location_permission_checker = { true },
+            has_phone_state_permission_checker = { true },
+            provider_candidates_resolver = { emptyList() },
+            cell_snapshot_reader = {
+                CellSnapshot(
+                    cell_id = "170402199",
+                    radio_type = "lte",
+                    area_code = "35632",
+                    pci = 321,
+                    mcc = "310",
+                    mnc = "410"
+                )
+            },
+            cell_lookup_reader = { api_key, _ ->
+                lookup_invocations += 1
+                assertEquals("test_key", api_key)
+                LocationSnapshot(
+                    latitude = 35.6895,
+                    longitude = 139.6917,
+                    altitude = null,
+                    accuracy_meters = 600.0f
+                )
+            }
+        )
+
+        val result = location_step.execute(
+            test_step_context(
+                profile = EmergencyProfile(opencellid_api_key = "test_key")
+            )
+        )
+        assertEquals(StepStatus.SUCCESS, result.status)
+        assertEquals(1, lookup_invocations)
+        assertEquals(35.6895, run_step_state.get_location()?.latitude ?: 0.0, 0.0001)
+    }
+
+    @Test
     fun `skips OpenCellID lookup when API key is missing`() = runTest {
         val run_step_state = RunStepState()
         var lookup_invocations = 0
