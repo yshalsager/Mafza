@@ -360,7 +360,10 @@ class PreflightValidator(
 
     private fun intent_action_structurally_valid(intent_action_spec: IntentActionSpec): Boolean {
         val data_uri = intent_action_spec.data_uri?.trim().orEmpty()
-        if (data_uri.isNotEmpty() && runCatching { Uri.parse(data_uri) }.getOrNull() == null) return false
+        if (data_uri.isNotEmpty()) {
+            val parsed = runCatching { java.net.URI(data_uri) }.getOrNull() ?: return false
+            if (parsed.toString().isBlank()) return false
+        }
         return true
     }
 

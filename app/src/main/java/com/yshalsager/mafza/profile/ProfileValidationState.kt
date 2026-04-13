@@ -19,6 +19,7 @@ internal data class ProfileValidationResult(
     val first_invalid_telegram_timeout_index: Int,
     val first_invalid_telegram_policy_order_index: Int,
     val first_invalid_intent_timeout_index: Int,
+    val first_invalid_intent_structure_index: Int,
     val first_required_unresolvable_intent_index: Int,
     val first_invalid_intent_policy_order_index: Int
 )
@@ -92,6 +93,9 @@ internal fun build_profile_validation_result(
             PROFILE_MAX_INTENT_TIMEOUT_SECONDS
         )
     }
+    val invalid_intent_structure_count = intent_actions.count { intent_action ->
+        !intent_data_uri_structurally_valid(intent_action.data_uri)
+    }
     val invalid_intent_policy_order_count = intent_actions.count { intent_action ->
         intent_action.policy_mode == ProfilePolicyMode.OVERRIDE &&
             !is_int_in_range(intent_action.policy_execution_order, PROFILE_MIN_POLICY_ORDER, PROFILE_MAX_POLICY_ORDER)
@@ -148,6 +152,9 @@ internal fun build_profile_validation_result(
             PROFILE_MIN_INTENT_STEP_TIMEOUT_SECONDS,
             PROFILE_MAX_INTENT_TIMEOUT_SECONDS
         )
+    }
+    val first_invalid_intent_structure_index = intent_actions.indexOfFirst { intent_action ->
+        !intent_data_uri_structurally_valid(intent_action.data_uri)
     }
     val first_invalid_intent_policy_order_index = intent_actions.indexOfFirst { intent_action ->
         intent_action.policy_mode == ProfilePolicyMode.OVERRIDE &&
@@ -304,6 +311,14 @@ internal fun build_profile_validation_result(
                 )
             )
         }
+        if (invalid_intent_structure_count > 0) {
+            add(
+                ProfileValidationIssue(
+                    key = ProfileValidationIssueKey.INTENT_STRUCTURE_INVALID,
+                    message = stringResource(R.string.profile_validation_intent_structure, invalid_intent_structure_count)
+                )
+            )
+        }
         if (invalid_intent_policy_order_count > 0) {
             add(
                 ProfileValidationIssue(
@@ -337,6 +352,7 @@ internal fun build_profile_validation_result(
         first_invalid_telegram_timeout_index = first_invalid_telegram_timeout_index,
         first_invalid_telegram_policy_order_index = first_invalid_telegram_policy_order_index,
         first_invalid_intent_timeout_index = first_invalid_intent_timeout_index,
+        first_invalid_intent_structure_index = first_invalid_intent_structure_index,
         first_required_unresolvable_intent_index = first_required_unresolvable_intent_index,
         first_invalid_intent_policy_order_index = first_invalid_intent_policy_order_index
     )
@@ -345,3 +361,10 @@ internal fun build_profile_validation_result(
 private val TELEGRAM_BOT_TOKEN_REGEX = Regex("^\\d{6,}:[A-Za-z0-9_-]{20,}$")
 private val TELEGRAM_CHAT_ID_NUMERIC_REGEX = Regex("^-?\\d{4,}$")
 private val TELEGRAM_CHAT_ID_USERNAME_REGEX = Regex("^@[A-Za-z0-9_]{5,64}$")
+
+private fun intent_data_uri_structurally_valid(data_uri: String): Boolean {
+    val normalized_data_uri = data_uri.trim()
+    if (normalized_data_uri.isEmpty()) return true
+    val parsed = runCatching { java.net.URI(normalized_data_uri) }.getOrNull() ?: return false
+    return parsed.toString().isNotBlank()
+}

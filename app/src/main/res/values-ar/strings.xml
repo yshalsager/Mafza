@@ -338,6 +338,7 @@
     <string name='profile_validation_telegram_timeout'>%1$d قيمة/قيم مهلة بوت تيليجرام غير صالحة.</string>
     <string name='profile_validation_telegram_order'>%1$d قيمة/قيم ترتيب سياسة بوت تيليجرام غير صالحة.</string>
     <string name='profile_validation_intent_step_timeout'>%1$d قيمة/قيم مهلة خطوة نية غير صالحة.</string>
+    <string name='profile_validation_intent_structure'>%1$d إجراء/إجراءات نية تحتوي تنسيق رابط بيانات غير صالح.</string>
     <string name='profile_validation_intent_unresolvable_required'>%1$d إجراء/إجراءات نية مطلوبة غير قابلة للحل.</string>
     <string name='profile_validation_intent_order'>%1$d قيمة/قيم ترتيب سياسة النية غير صالحة.</string>
     <string name='preflight_title'>فحص الجاهزية</string>

@@ -397,6 +397,7 @@ internal fun ProfileScreen(
     val first_invalid_telegram_timeout_index = validation_result.first_invalid_telegram_timeout_index
     val first_invalid_telegram_policy_order_index = validation_result.first_invalid_telegram_policy_order_index
     val first_invalid_intent_timeout_index = validation_result.first_invalid_intent_timeout_index
+    val first_invalid_intent_structure_index = validation_result.first_invalid_intent_structure_index
     val first_required_unresolvable_intent_index = validation_result.first_required_unresolvable_intent_index
     val first_invalid_intent_policy_order_index = validation_result.first_invalid_intent_policy_order_index
     val can_save = validation_issues.isEmpty() && !is_saving
@@ -618,6 +619,13 @@ internal fun ProfileScreen(
             ProfileValidationIssueKey.INTENT_STEP_TIMEOUT_INVALID -> {
                 group_expansion[ProfileActionGroup.APP_INTENT] = true
                 val target_intent = intent_actions.getOrNull(first_invalid_intent_timeout_index)
+                if (target_intent != null) {
+                    editing_action_row_id = "intent:${target_intent.id}"
+                }
+            }
+            ProfileValidationIssueKey.INTENT_STRUCTURE_INVALID -> {
+                group_expansion[ProfileActionGroup.APP_INTENT] = true
+                val target_intent = intent_actions.getOrNull(first_invalid_intent_structure_index)
                 if (target_intent != null) {
                     editing_action_row_id = "intent:${target_intent.id}"
                 }

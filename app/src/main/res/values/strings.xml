@@ -338,6 +338,7 @@
     <string name='profile_validation_telegram_timeout'>%1$d Telegram bot timeout value(s) are invalid.</string>
     <string name='profile_validation_telegram_order'>%1$d Telegram bot policy order value(s) are invalid.</string>
     <string name='profile_validation_intent_step_timeout'>%1$d intent step timeout value(s) are invalid.</string>
+    <string name='profile_validation_intent_structure'>%1$d intent action(s) contain invalid data URI format.</string>
     <string name='profile_validation_intent_unresolvable_required'>%1$d required intent action(s) are not resolvable.</string>
     <string name='profile_validation_intent_order'>%1$d intent policy order value(s) are invalid.</string>
     <string name='preflight_title'>Preflight</string>
