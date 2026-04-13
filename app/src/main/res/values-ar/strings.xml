@@ -246,6 +246,8 @@
     <string name='profile_shell_command_item'>الأمر %1$d</string>
     <string name='profile_shell_label_label'>الاسم</string>
     <string name='profile_shell_raw_label'>أمر شل خام (اختياري)</string>
+    <string name='profile_shell_allow_raw_label'>السماح بأمر شل خام (خطير)</string>
+    <string name='profile_shell_raw_disabled_hint'>سيتم تجاهل الأمر الخام حتى تفعيل الوضع الخطير.</string>
     <string name='profile_shell_argv_label'>ARGV (اختياري)</string>
     <string name='profile_shell_argv_help'>وسيطة واحدة في كل سطر. يُستخدم عند ترك الأمر الخام فارغًا.</string>
     <string name='profile_shell_payload_required'>وفّر أمرًا خامًا أو وسائط ARGV.</string>

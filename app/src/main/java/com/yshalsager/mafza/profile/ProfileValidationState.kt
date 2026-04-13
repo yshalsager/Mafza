@@ -53,7 +53,10 @@ internal fun build_profile_validation_result(
         !is_int_in_range(command.timeout_seconds, PROFILE_MIN_STEP_TIMEOUT_SECONDS, PROFILE_MAX_ADVANCED_SHELL_TIMEOUT_SECONDS)
     }
     val invalid_shell_command_payload_count = advanced_shell_commands.count { command ->
-        command.enabled && command.raw_shell.trim().isEmpty() && split_multiline_values(command.argv_multiline).isEmpty()
+        if (!command.enabled) return@count false
+        val has_argv = split_multiline_values(command.argv_multiline).isNotEmpty()
+        val has_allowed_raw_shell = command.allow_raw_shell && command.raw_shell.trim().isNotEmpty()
+        !(has_argv || has_allowed_raw_shell)
     }
     val invalid_binding_package_count = message_app_bindings.count { binding ->
         binding.enabled && binding.package_name.trim().isEmpty()
@@ -91,7 +94,10 @@ internal fun build_profile_validation_result(
         !is_int_in_range(command.timeout_seconds, PROFILE_MIN_STEP_TIMEOUT_SECONDS, PROFILE_MAX_ADVANCED_SHELL_TIMEOUT_SECONDS)
     }
     val first_invalid_shell_payload_index = advanced_shell_commands.indexOfFirst { command ->
-        command.enabled && command.raw_shell.trim().isEmpty() && split_multiline_values(command.argv_multiline).isEmpty()
+        if (!command.enabled) return@indexOfFirst false
+        val has_argv = split_multiline_values(command.argv_multiline).isNotEmpty()
+        val has_allowed_raw_shell = command.allow_raw_shell && command.raw_shell.trim().isNotEmpty()
+        !(has_argv || has_allowed_raw_shell)
     }
     val first_invalid_binding_package_index = message_app_bindings.indexOfFirst { binding ->
         binding.enabled && binding.package_name.trim().isEmpty()

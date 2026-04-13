@@ -110,7 +110,7 @@ class AdvancedShellCommandsStep(
         val timeout_seconds = command.timeout_seconds.coerceIn(1, 120)
         val raw_shell = command.raw_shell?.trim().orEmpty()
         return withTimeoutOrNull(timeout_seconds * 1_000L) {
-            if (raw_shell.isNotEmpty()) {
+            if (command.allow_raw_shell && raw_shell.isNotEmpty()) {
                 return@withTimeoutOrNull command_executor.execute_raw_shell(
                     raw_shell = raw_shell,
                     timeout_seconds = timeout_seconds

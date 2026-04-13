@@ -14,8 +14,8 @@ internal fun requires_shizuku_for_live_destructive_actions(profile: EmergencyPro
         profile.advanced_shell_commands.any { command ->
             if (!command.enabled) return@any false
             val has_argv = command.argv.any { argv_item -> argv_item.trim().isNotEmpty() }
-            val has_raw_shell = !command.raw_shell.isNullOrBlank()
-            has_argv || has_raw_shell
+            val has_allowed_raw_shell = command.allow_raw_shell && !command.raw_shell.isNullOrBlank()
+            has_argv || has_allowed_raw_shell
         }
     val self_uninstall_requires_shizuku = is_action_enabled(profile.action_policies, ActionId.SELF_UNINSTALL) &&
         profile.self_uninstall_enabled

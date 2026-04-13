@@ -704,6 +704,35 @@ internal fun ShellCommandEditorSection(
         modifier = Modifier.fillMaxWidth(),
         minLines = 2
     )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = stringResource(R.string.profile_shell_allow_raw_label),
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f)
+        )
+        Switch(
+            checked = shell_command.allow_raw_shell,
+            onCheckedChange = { allow_raw_shell ->
+                on_update_advanced_shell_commands(
+                    advanced_shell_commands.update_item(row.item_index) { current_command ->
+                        current_command.copy(allow_raw_shell = allow_raw_shell)
+                    }
+                )
+                on_mark_profile_dirty()
+            }
+        )
+    }
+    if (shell_command.raw_shell.isNotBlank() && !shell_command.allow_raw_shell) {
+        Text(
+            text = stringResource(R.string.profile_shell_raw_disabled_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error
+        )
+    }
     OutlinedTextField(
         value = shell_command.argv_multiline,
         onValueChange = { value ->

@@ -204,6 +204,7 @@ internal data class EditableShellCommand(
     val id: String,
     val label: String,
     val raw_shell: String,
+    val allow_raw_shell: Boolean,
     val argv_multiline: String,
     val timeout_seconds: String,
     val continue_on_failure: Boolean,

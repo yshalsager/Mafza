@@ -300,6 +300,45 @@ class PreflightValidatorTest {
     }
 
     @Test
+    fun `binding-specific enabled policy is validated even when global action policy is disabled`() {
+        val validator = validator(binding_available = false)
+        val primary_binding = ActionBinding(
+            action_id = ActionId.NOTIFY_MESSAGE_APP,
+            binding_id = "primary",
+            package_name = "com.example.primary",
+            activity_name = null,
+            enabled = true
+        )
+        val profile = EmergencyProfile(
+            sms_recipients = listOf("+20123456789"),
+            action_bindings = listOf(primary_binding),
+            action_policies = listOf(
+                ActionPolicy(
+                    action_id = ActionId.NOTIFY_MESSAGE_APP,
+                    policy_key = ActionPolicyKeys.for_action(ActionId.NOTIFY_MESSAGE_APP),
+                    enabled = false,
+                    required = false,
+                    continue_on_failure = true,
+                    execution_order = 1
+                ),
+                ActionPolicy(
+                    action_id = ActionId.NOTIFY_MESSAGE_APP,
+                    policy_key = ActionPolicyKeys.for_binding(primary_binding),
+                    enabled = true,
+                    required = true,
+                    continue_on_failure = true,
+                    execution_order = 2
+                )
+            )
+        )
+
+        val report = validator.validate(profile, ShizukuPermissionState())
+
+        assertFalse(report.live_ready)
+        assertTrue(report.live_blocking_issues.contains("required_binding_unavailable_notify_message_app"))
+    }
+
+    @Test
     fun `invalid intent does not block when launch intent action is disabled`() {
         val validator = validator()
         val profile = EmergencyProfile(

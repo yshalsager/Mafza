@@ -131,9 +131,12 @@ class PreflightValidator(
         warnings: MutableList<String>
     ) {
         val enabled_bindings = profile.action_bindings.filter { binding ->
-            binding.enabled && is_action_enabled(
+            if (!binding.enabled) return@filter false
+            val binding_policy_key = ActionPolicyKeys.for_binding(binding)
+            is_action_enabled(
                 action_policies = profile.action_policies,
-                action_id = binding.action_id
+                action_id = binding.action_id,
+                policy_key = binding_policy_key
             )
         }
         val has_missing_binding_id = enabled_bindings.any { it.binding_id.trim().isEmpty() }
@@ -427,8 +430,8 @@ class PreflightValidator(
             .filter { it.enabled }
             .all { command ->
                 val has_argv = command.argv.map(String::trim).any { it.isNotEmpty() }
-                val has_raw_shell = !command.raw_shell.isNullOrBlank()
-                has_argv || has_raw_shell
+                val has_allowed_raw_shell = command.allow_raw_shell && !command.raw_shell.isNullOrBlank()
+                has_argv || has_allowed_raw_shell
             }
     }
 

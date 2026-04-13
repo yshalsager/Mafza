@@ -46,6 +46,7 @@ data class ShellCommandSpec(
     val label: String,
     val argv: List<String>,
     val raw_shell: String?,
+    val allow_raw_shell: Boolean = false,
     val timeout_seconds: Int,
     val continue_on_failure: Boolean,
     val enabled: Boolean

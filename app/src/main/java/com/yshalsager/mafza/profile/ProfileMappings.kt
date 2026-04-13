@@ -215,6 +215,7 @@ internal fun to_editable_shell_command(command: ShellCommandSpec): EditableShell
         id = command.id.trim().ifEmpty { UUID.randomUUID().toString() },
         label = command.label,
         raw_shell = command.raw_shell.orEmpty(),
+        allow_raw_shell = command.allow_raw_shell,
         argv_multiline = command.argv.joinToString("\n"),
         timeout_seconds = command.timeout_seconds.toString(),
         continue_on_failure = command.continue_on_failure,
@@ -227,6 +228,7 @@ internal fun create_empty_shell_command(): EditableShellCommand {
         id = UUID.randomUUID().toString(),
         label = "",
         raw_shell = "",
+        allow_raw_shell = false,
         argv_multiline = "",
         timeout_seconds = "15",
         continue_on_failure = true,
@@ -316,6 +318,7 @@ internal fun build_profile_shell_commands(commands: List<EditableShellCommand>):
             label = command.label.trim(),
             argv = split_multiline_values(command.argv_multiline),
             raw_shell = command.raw_shell.trim().ifEmpty { null },
+            allow_raw_shell = command.allow_raw_shell,
             timeout_seconds = parse_int_or_fallback(
                 value = command.timeout_seconds,
                 fallback = 15,

@@ -246,6 +246,8 @@
     <string name='profile_shell_command_item'>Command %1$d</string>
     <string name='profile_shell_label_label'>Label</string>
     <string name='profile_shell_raw_label'>Raw Shell Command (optional)</string>
+    <string name='profile_shell_allow_raw_label'>Allow Raw Shell (dangerous)</string>
+    <string name='profile_shell_raw_disabled_hint'>Raw shell text is ignored until dangerous mode is enabled.</string>
     <string name='profile_shell_argv_label'>ARGV (optional)</string>
     <string name='profile_shell_argv_help'>One argument per line. Used when raw command is empty.</string>
     <string name='profile_shell_payload_required'>Provide either raw command or ARGV entries.</string>

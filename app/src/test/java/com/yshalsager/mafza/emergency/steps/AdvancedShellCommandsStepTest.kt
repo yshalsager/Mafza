@@ -58,7 +58,7 @@ class AdvancedShellCommandsStepTest {
     }
 
     @Test
-    fun `executes raw-shell command when provided`() = runTest {
+    fun `executes raw-shell command when dangerous mode is enabled`() = runTest {
         val fake_executor = FakeCommandExecutor()
         val step = AdvancedShellCommandsStep(command_executor = fake_executor)
 
@@ -75,6 +75,31 @@ class AdvancedShellCommandsStepTest {
 
         assertEquals(StepStatus.SUCCESS, result.status)
         assertEquals(listOf("echo hello"), fake_executor.raw_shell_calls)
+        assertTrue(fake_executor.argv_calls.isEmpty())
+    }
+
+    @Test
+    fun `does not execute raw-shell command when dangerous mode is disabled`() = runTest {
+        val fake_executor = FakeCommandExecutor()
+        val step = AdvancedShellCommandsStep(command_executor = fake_executor)
+
+        val result = step.execute(
+            test_step_context(
+                profile = EmergencyProfile(
+                    destructive_actions_enabled = true,
+                    advanced_shell_commands = listOf(
+                        raw_shell_command(
+                            id = "cmd_1",
+                            raw_shell = "echo hello",
+                            allow_raw_shell = false
+                        )
+                    )
+                )
+            )
+        )
+
+        assertEquals(StepStatus.FAILED, result.status)
+        assertTrue(fake_executor.raw_shell_calls.isEmpty())
         assertTrue(fake_executor.argv_calls.isEmpty())
     }
 
@@ -177,6 +202,7 @@ class AdvancedShellCommandsStepTest {
             label = id,
             argv = argv,
             raw_shell = null,
+            allow_raw_shell = false,
             timeout_seconds = timeout_seconds,
             continue_on_failure = continue_on_failure,
             enabled = enabled
@@ -186,6 +212,7 @@ class AdvancedShellCommandsStepTest {
     private fun raw_shell_command(
         id: String,
         raw_shell: String,
+        allow_raw_shell: Boolean = true,
         timeout_seconds: Int = 10,
         continue_on_failure: Boolean = true,
         enabled: Boolean = true
@@ -195,6 +222,7 @@ class AdvancedShellCommandsStepTest {
             label = id,
             argv = emptyList(),
             raw_shell = raw_shell,
+            allow_raw_shell = allow_raw_shell,
             timeout_seconds = timeout_seconds,
             continue_on_failure = continue_on_failure,
             enabled = enabled
