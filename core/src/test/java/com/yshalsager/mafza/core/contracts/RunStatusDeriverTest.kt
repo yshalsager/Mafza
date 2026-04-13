@@ -71,6 +71,30 @@ class RunStatusDeriverTest {
     }
 
     @Test
+    fun `required failure downgrades success to partial when some steps succeeded`() {
+        val run_status = RunStatusDeriver.derive_run_status(
+            is_running = false,
+            cancelled_pre_start = false,
+            step_statuses = listOf(StepStatus.SUCCESS, StepStatus.SKIPPED_UNAVAILABLE),
+            required_step_failed = true
+        )
+
+        assertEquals(RunStatus.COMPLETED_PARTIAL, run_status)
+    }
+
+    @Test
+    fun `required failure downgrades all-skip success to failed`() {
+        val run_status = RunStatusDeriver.derive_run_status(
+            is_running = false,
+            cancelled_pre_start = false,
+            step_statuses = listOf(StepStatus.SKIPPED_DRY_RUN, StepStatus.SKIPPED_UNAVAILABLE),
+            required_step_failed = true
+        )
+
+        assertEquals(RunStatus.COMPLETED_FAILED, run_status)
+    }
+
+    @Test
     fun `returns COMPLETED_FAILED when no steps executed`() {
         val run_status = RunStatusDeriver.derive_run_status(
             is_running = false,

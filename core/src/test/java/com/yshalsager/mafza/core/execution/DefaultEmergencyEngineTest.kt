@@ -579,6 +579,160 @@ class DefaultEmergencyEngineTest {
         assertEquals(listOf("notify_message_app", "launch_intent"), execution_order)
     }
 
+    @Test
+    fun `required failure marks run non-success even when continuation is allowed`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val events = CopyOnWriteArrayList<EngineEvent>()
+        val profile = EmergencyProfile(
+            action_policies = listOf(
+                ActionPolicy(
+                    action_id = ActionId.NOTIFY_MESSAGE_APP,
+                    enabled = true,
+                    required = true,
+                    continue_on_failure = true,
+                    execution_order = 1
+                ),
+                ActionPolicy(
+                    action_id = ActionId.LAUNCH_INTENT,
+                    enabled = true,
+                    required = false,
+                    continue_on_failure = true,
+                    execution_order = 2
+                )
+            )
+        )
+
+        val engine = DefaultEmergencyEngine(
+            scope = CoroutineScope(dispatcher + Job()),
+            profile_reader = { profile },
+            steps_provider = {
+                listOf(
+                    TestPolicyStep(
+                        action_id = ActionId.NOTIFY_MESSAGE_APP,
+                        branch = StepBranch.NOTIFY
+                    ) {
+                        failed_result("required_notify_failed")
+                    },
+                    TestPolicyStep(
+                        action_id = ActionId.LAUNCH_INTENT,
+                        branch = StepBranch.NOTIFY
+                    ) {
+                        success_result("optional_intent_success")
+                    }
+                )
+            },
+            cancel_window_millis_provider = { 1L },
+            on_event = { events += it }
+        )
+
+        engine.start(TriggerSource.SHORTCUT, ExecutionMode.LIVE)
+        testScheduler.advanceUntilIdle()
+
+        val completed_event = events.filterIsInstance<EngineEvent.RunCompleted>().last()
+        assertEquals(RunStatus.COMPLETED_PARTIAL, completed_event.run_status)
+    }
+
+    @Test
+    fun `duplicate policy key fails closed and does not execute policy-bound step`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val events = CopyOnWriteArrayList<EngineEvent>()
+        var was_executed = false
+        val duplicated_policy_key = ActionPolicyKeys.for_action(ActionId.NOTIFY_MESSAGE_APP)
+        val profile = EmergencyProfile(
+            action_policies = listOf(
+                ActionPolicy(
+                    action_id = ActionId.NOTIFY_MESSAGE_APP,
+                    policy_key = duplicated_policy_key,
+                    enabled = true,
+                    required = false,
+                    continue_on_failure = true,
+                    execution_order = 1
+                ),
+                ActionPolicy(
+                    action_id = ActionId.NOTIFY_MESSAGE_APP,
+                    policy_key = duplicated_policy_key,
+                    enabled = true,
+                    required = false,
+                    continue_on_failure = true,
+                    execution_order = 2
+                )
+            )
+        )
+
+        val engine = DefaultEmergencyEngine(
+            scope = CoroutineScope(dispatcher + Job()),
+            profile_reader = { profile },
+            steps_provider = {
+                listOf(
+                    TestPolicyStep(
+                        action_id = ActionId.NOTIFY_MESSAGE_APP,
+                        branch = StepBranch.NOTIFY
+                    ) {
+                        was_executed = true
+                        success_result("unexpected_notify_execution")
+                    }
+                )
+            },
+            cancel_window_millis_provider = { 1L },
+            on_event = { events += it }
+        )
+
+        engine.start(TriggerSource.SHORTCUT, ExecutionMode.LIVE)
+        testScheduler.advanceUntilIdle()
+
+        assertFalse(was_executed)
+        val step_completed = events.filterIsInstance<EngineEvent.StepCompleted>().last()
+        assertEquals(StepStatus.SKIPPED_UNAVAILABLE, step_completed.step_result.status)
+        assertEquals("disabled_by_policy", step_completed.step_result.details)
+        val run_completed = events.filterIsInstance<EngineEvent.RunCompleted>().last()
+        assertEquals(RunStatus.COMPLETED_FAILED, run_completed.run_status)
+    }
+
+    @Test
+    fun `malformed policy key fails closed for that action`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val events = CopyOnWriteArrayList<EngineEvent>()
+        var was_executed = false
+        val profile = EmergencyProfile(
+            action_policies = listOf(
+                ActionPolicy(
+                    action_id = ActionId.NOTIFY_MESSAGE_APP,
+                    policy_key = " ",
+                    enabled = true,
+                    required = false,
+                    continue_on_failure = true,
+                    execution_order = 1
+                )
+            )
+        )
+
+        val engine = DefaultEmergencyEngine(
+            scope = CoroutineScope(dispatcher + Job()),
+            profile_reader = { profile },
+            steps_provider = {
+                listOf(
+                    TestPolicyStep(
+                        action_id = ActionId.NOTIFY_MESSAGE_APP,
+                        branch = StepBranch.NOTIFY
+                    ) {
+                        was_executed = true
+                        success_result("unexpected_notify_execution")
+                    }
+                )
+            },
+            cancel_window_millis_provider = { 1L },
+            on_event = { events += it }
+        )
+
+        engine.start(TriggerSource.SHORTCUT, ExecutionMode.LIVE)
+        testScheduler.advanceUntilIdle()
+
+        assertFalse(was_executed)
+        val step_completed = events.filterIsInstance<EngineEvent.StepCompleted>().last()
+        assertEquals(StepStatus.SKIPPED_UNAVAILABLE, step_completed.step_result.status)
+        assertEquals("disabled_by_policy", step_completed.step_result.details)
+    }
+
     private class TestPolicyStep(
         override val action_id: ActionId,
         override val policy_key: String = ActionPolicyKeys.for_action(action_id),

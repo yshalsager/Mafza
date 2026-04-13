@@ -5,6 +5,7 @@ import com.yshalsager.mafza.core.contracts.EmergencyProfile
 import com.yshalsager.mafza.core.contracts.EmergencyStep
 import com.yshalsager.mafza.core.contracts.ExecutionMode
 import com.yshalsager.mafza.core.contracts.PolicyBoundEmergencyStep
+import com.yshalsager.mafza.core.contracts.ActionId
 import com.yshalsager.mafza.core.contracts.ActionPolicy
 import com.yshalsager.mafza.core.contracts.ActionPolicyKeys
 import com.yshalsager.mafza.core.contracts.RunId
@@ -78,6 +79,7 @@ class DefaultEmergencyEngine(
 
     private suspend fun execute_run(run_id: RunId, trigger: TriggerSource, mode: ExecutionMode) {
         val step_statuses = mutableListOf<StepStatus>()
+        var required_step_failed = false
         try {
             val started_at = clock()
             on_event(
@@ -170,6 +172,9 @@ class DefaultEmergencyEngine(
                         finished_at_epoch_ms = clock()
                     )
                     step_statuses += skipped_result.status
+                    if (policy?.required == true && is_required_step_failure(skipped_result.status, mode)) {
+                        required_step_failed = true
+                    }
                     on_event(EngineEvent.StepCompleted(run_id = run_id, step_result = skipped_result))
                     return@forEach
                 }
@@ -183,6 +188,9 @@ class DefaultEmergencyEngine(
                         finished_at_epoch_ms = clock()
                     )
                     step_statuses += disabled_result.status
+                    if (policy.required && is_required_step_failure(disabled_result.status, mode)) {
+                        required_step_failed = true
+                    }
                     on_event(EngineEvent.StepCompleted(run_id = run_id, step_result = disabled_result))
                     return@forEach
                 }
@@ -203,6 +211,9 @@ class DefaultEmergencyEngine(
                 }
 
                 step_statuses += step_result.status
+                if (policy?.required == true && is_required_step_failure(step_result.status, mode)) {
+                    required_step_failed = true
+                }
                 on_event(EngineEvent.StepCompleted(run_id = run_id, step_result = step_result))
 
                 if (
@@ -218,7 +229,8 @@ class DefaultEmergencyEngine(
             val run_status = RunStatusDeriver.derive_run_status(
                 is_running = false,
                 cancelled_pre_start = false,
-                step_statuses = step_statuses
+                step_statuses = step_statuses,
+                required_step_failed = required_step_failed
             )
             complete_run(run_id = run_id, run_status = run_status, step_statuses = step_statuses)
         } catch (cancelled_exception: CancellationException) {
@@ -267,6 +279,7 @@ class DefaultEmergencyEngine(
         steps: List<EmergencyStep>,
         action_policies: List<ActionPolicy>
     ): List<PlannedExecutionStep> {
+        val policy_index = build_policy_index(action_policies)
         val indexed_steps = steps.mapIndexed { index, step -> IndexedStep(index = index, step = step) }
         val non_policy_steps = indexed_steps
             .filter { it.step !is PolicyBoundEmergencyStep }
@@ -274,17 +287,17 @@ class DefaultEmergencyEngine(
 
         val notify_steps = ordered_policy_steps_for_branch(
             indexed_steps = indexed_steps,
-            action_policies = action_policies,
+            policy_index = policy_index,
             branch = StepBranch.NOTIFY
         )
         val destructive_steps = ordered_policy_steps_for_branch(
             indexed_steps = indexed_steps,
-            action_policies = action_policies,
+            policy_index = policy_index,
             branch = StepBranch.DESTRUCTIVE
         )
         val finalize_steps = ordered_policy_steps_for_branch(
             indexed_steps = indexed_steps,
-            action_policies = action_policies,
+            policy_index = policy_index,
             branch = StepBranch.FINALIZE
         )
 
@@ -293,18 +306,19 @@ class DefaultEmergencyEngine(
 
     private fun ordered_policy_steps_for_branch(
         indexed_steps: List<IndexedStep>,
-        action_policies: List<ActionPolicy>,
+        policy_index: PolicyIndex,
         branch: StepBranch
     ): List<PlannedExecutionStep> {
-        val policies_by_key = action_policies.groupBy(ActionPolicy::policy_key)
         return indexed_steps
             .mapNotNull { indexed_step ->
                 val policy_step = indexed_step.step as? PolicyBoundEmergencyStep ?: return@mapNotNull null
                 if (policy_step.branch != branch) return@mapNotNull null
 
-                val resolved_policy = unique_policy_by_key(policies_by_key, policy_step.policy_key)
-                    ?: unique_policy_by_key(policies_by_key, ActionPolicyKeys.for_action(policy_step.action_id))
-                    ?: default_action_policy(policy_step.action_id, policy_step.policy_key)
+                val resolved_policy = when (val resolution = resolve_policy_for_step(policy_index, policy_step)) {
+                    is PolicyResolution.Resolved -> resolution.policy
+                    PolicyResolution.Invalid -> invalid_action_policy(policy_step.action_id, policy_step.policy_key)
+                    PolicyResolution.Missing -> default_action_policy(policy_step.action_id, policy_step.policy_key)
+                }
                 PlannedExecutionStep(
                     step = indexed_step.step,
                     policy = resolved_policy,
@@ -315,15 +329,62 @@ class DefaultEmergencyEngine(
             .sortedWith(compareBy({ it.order }, { it.original_index }))
     }
 
-    private fun unique_policy_by_key(
-        policies_by_key: Map<String, List<ActionPolicy>>,
-        policy_key: String
-    ): ActionPolicy? {
-        val matches = policies_by_key[policy_key] ?: return null
-        return matches.singleOrNull()
+    private fun build_policy_index(action_policies: List<ActionPolicy>): PolicyIndex {
+        val normalized = action_policies.map { policy ->
+            policy to policy.policy_key.trim()
+        }
+        val actions_with_malformed_policy_keys = normalized
+            .filter { (_, normalized_policy_key) -> normalized_policy_key.isEmpty() }
+            .map { (policy, _) -> policy.action_id }
+            .toSet()
+        val grouped_by_key = normalized
+            .filter { (_, normalized_policy_key) -> normalized_policy_key.isNotEmpty() }
+            .groupBy(
+                keySelector = { (_, normalized_policy_key) -> normalized_policy_key },
+                valueTransform = { (policy, _) -> policy }
+            )
+        val duplicate_policy_keys = grouped_by_key
+            .filterValues { policies -> policies.size > 1 }
+            .keys
+        val unique_policies_by_key = grouped_by_key
+            .filterValues { policies -> policies.size == 1 }
+            .mapValues { (_, policies) -> policies.first() }
+        return PolicyIndex(
+            unique_policies_by_key = unique_policies_by_key,
+            duplicate_policy_keys = duplicate_policy_keys,
+            actions_with_malformed_policy_keys = actions_with_malformed_policy_keys
+        )
     }
 
-    private fun default_action_policy(action_id: com.yshalsager.mafza.core.contracts.ActionId, policy_key: String): com.yshalsager.mafza.core.contracts.ActionPolicy {
+    private fun resolve_policy_for_step(
+        policy_index: PolicyIndex,
+        policy_step: PolicyBoundEmergencyStep
+    ): PolicyResolution {
+        if (policy_step.action_id in policy_index.actions_with_malformed_policy_keys) {
+            return PolicyResolution.Invalid
+        }
+
+        val normalized_specific_policy_key = policy_step.policy_key.trim()
+        if (normalized_specific_policy_key.isNotEmpty()) {
+            if (normalized_specific_policy_key in policy_index.duplicate_policy_keys) {
+                return PolicyResolution.Invalid
+            }
+            policy_index.unique_policies_by_key[normalized_specific_policy_key]?.let { policy ->
+                return PolicyResolution.Resolved(policy)
+            }
+        }
+
+        val action_policy_key = ActionPolicyKeys.for_action(policy_step.action_id)
+        if (action_policy_key in policy_index.duplicate_policy_keys) {
+            return PolicyResolution.Invalid
+        }
+        policy_index.unique_policies_by_key[action_policy_key]?.let { policy ->
+            return PolicyResolution.Resolved(policy)
+        }
+        return PolicyResolution.Missing
+    }
+
+    private fun default_action_policy(action_id: ActionId, policy_key: String): ActionPolicy {
         return ActionPolicy(
             action_id = action_id,
             policy_key = policy_key,
@@ -332,6 +393,24 @@ class DefaultEmergencyEngine(
             continue_on_failure = true,
             execution_order = Int.MAX_VALUE
         )
+    }
+
+    private fun invalid_action_policy(action_id: ActionId, policy_key: String): ActionPolicy {
+        return ActionPolicy(
+            action_id = action_id,
+            policy_key = policy_key,
+            enabled = false,
+            required = true,
+            continue_on_failure = false,
+            execution_order = Int.MAX_VALUE
+        )
+    }
+
+    private fun is_required_step_failure(status: StepStatus, mode: ExecutionMode): Boolean {
+        if (status == StepStatus.SUCCESS) return false
+        if (status == StepStatus.CANCELLED_PRE_START) return false
+        if (mode == ExecutionMode.DRY_RUN && status == StepStatus.SKIPPED_DRY_RUN) return false
+        return true
     }
 
     private fun set_cancel_window_state(run_id: RunId, is_open: Boolean) {
@@ -375,4 +454,16 @@ class DefaultEmergencyEngine(
         val order: Int,
         val original_index: Int = Int.MAX_VALUE
     )
+
+    private data class PolicyIndex(
+        val unique_policies_by_key: Map<String, ActionPolicy>,
+        val duplicate_policy_keys: Set<String>,
+        val actions_with_malformed_policy_keys: Set<ActionId>
+    )
+
+    private sealed interface PolicyResolution {
+        data class Resolved(val policy: ActionPolicy) : PolicyResolution
+        data object Invalid : PolicyResolution
+        data object Missing : PolicyResolution
+    }
 }

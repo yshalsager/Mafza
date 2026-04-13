@@ -41,7 +41,8 @@ object RunStatusDeriver {
     fun derive_run_status(
         is_running: Boolean,
         cancelled_pre_start: Boolean,
-        step_statuses: List<StepStatus>
+        step_statuses: List<StepStatus>,
+        required_step_failed: Boolean = false
     ): RunStatus {
         if (is_running) return RunStatus.RUNNING
         if (cancelled_pre_start) return RunStatus.CANCELLED_PRE_START
@@ -49,20 +50,24 @@ object RunStatusDeriver {
 
         val success_count = step_statuses.count { it == StepStatus.SUCCESS }
         val all_success = success_count == step_statuses.size
-        if (all_success) return RunStatus.COMPLETED_SUCCESS
+        val derived_status = when {
+            all_success -> RunStatus.COMPLETED_SUCCESS
 
-        val has_non_success = step_statuses.any { it != StepStatus.SUCCESS }
-        if (success_count > 0 && has_non_success) return RunStatus.COMPLETED_PARTIAL
+            step_statuses.any { it != StepStatus.SUCCESS } && success_count > 0 -> RunStatus.COMPLETED_PARTIAL
 
-        val has_hard_failure = step_statuses.any { it == StepStatus.FAILED || it == StepStatus.TIMED_OUT }
-        if (success_count == 0 && has_hard_failure) return RunStatus.COMPLETED_FAILED
+            success_count == 0 && step_statuses.any { it == StepStatus.FAILED || it == StepStatus.TIMED_OUT } -> {
+                RunStatus.COMPLETED_FAILED
+            }
 
-        // If no step succeeded but all outcomes are non-failing skips, treat run as successful.
-        val all_non_failing_skips = step_statuses.all {
-            it == StepStatus.SKIPPED_UNAVAILABLE || it == StepStatus.SKIPPED_DRY_RUN
+            // If no step succeeded but all outcomes are non-failing skips, treat run as successful.
+            step_statuses.all {
+                it == StepStatus.SKIPPED_UNAVAILABLE || it == StepStatus.SKIPPED_DRY_RUN
+            } -> RunStatus.COMPLETED_SUCCESS
+
+            else -> RunStatus.COMPLETED_FAILED
         }
-        if (all_non_failing_skips) return RunStatus.COMPLETED_SUCCESS
-
-        return RunStatus.COMPLETED_FAILED
+        if (!required_step_failed) return derived_status
+        if (derived_status != RunStatus.COMPLETED_SUCCESS) return derived_status
+        return if (success_count > 0) RunStatus.COMPLETED_PARTIAL else RunStatus.COMPLETED_FAILED
     }
 }
