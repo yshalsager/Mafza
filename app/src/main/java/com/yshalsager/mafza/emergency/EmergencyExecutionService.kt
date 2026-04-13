@@ -16,8 +16,10 @@ import com.yshalsager.mafza.emergency.providers.ActionProviderRegistry
 import com.yshalsager.mafza.emergency.providers.IntentMessageAppProvider
 import com.yshalsager.mafza.core.contracts.ExecutionMode
 import com.yshalsager.mafza.core.contracts.EmergencyProfile
+import com.yshalsager.mafza.core.contracts.ActionId
 import com.yshalsager.mafza.core.contracts.RunStatus
 import com.yshalsager.mafza.core.contracts.StepResult
+import com.yshalsager.mafza.core.contracts.StepStatus
 import com.yshalsager.mafza.core.contracts.TriggerSource
 import com.yshalsager.mafza.core.data.history.CommandAuditEntity
 import com.yshalsager.mafza.core.data.history.MafzaHistoryDatabase
@@ -214,7 +216,7 @@ class EmergencyExecutionService : Service() {
         val bundle = RunHistoryInsertBundle(
             run = run_entity,
             steps = step_entities,
-            command_audits = emptyList<CommandAuditEntity>()
+            command_audits = command_audits_from_step_history(run_id, step_entities)
         )
         history_store.insert_with_retention(bundle)
     }
@@ -229,6 +231,44 @@ class EmergencyExecutionService : Service() {
             started_at_epoch_ms = started_at_epoch_ms,
             finished_at_epoch_ms = finished_at_epoch_ms
         )
+    }
+
+    private fun command_audits_from_step_history(
+        run_id: String,
+        step_entities: List<StepHistoryEntity>
+    ): List<CommandAuditEntity> {
+        return step_entities.mapNotNull { step ->
+            val action_id = action_id_for_command_audit(step.step_id) ?: return@mapNotNull null
+            val redacted_details = step.details.orEmpty().take(COMMAND_AUDIT_DETAILS_LIMIT)
+            val exit_code = when (step.status) {
+                StepStatus.SUCCESS -> 0
+                StepStatus.FAILED -> 1
+                else -> null
+            }
+            val stderr_snippet = when (step.status) {
+                StepStatus.FAILED, StepStatus.TIMED_OUT -> redacted_details.ifEmpty { null }
+                else -> null
+            }
+            CommandAuditEntity(
+                run_id = run_id,
+                step_index = step.step_index,
+                command_index = 0,
+                action_id = action_id,
+                target_summary = redacted_details,
+                exit_code = exit_code,
+                stderr_snippet = stderr_snippet
+            )
+        }
+    }
+
+    private fun action_id_for_command_audit(step_id: String): ActionId? {
+        return when {
+            step_id.startsWith("uninstall_apps") -> ActionId.UNINSTALL_APPS
+            step_id.startsWith("delete_paths") -> ActionId.DELETE_PATHS
+            step_id.startsWith("advanced_shell_commands") -> ActionId.ADVANCED_SHELL_COMMANDS
+            step_id.startsWith("self_uninstall") -> ActionId.SELF_UNINSTALL
+            else -> null
+        }
     }
 
     private fun parse_trigger_source(raw: String?): TriggerSource {
@@ -347,5 +387,6 @@ class EmergencyExecutionService : Service() {
         private const val LOG_TAG = "EmergencyExecService"
         private const val NOTIFICATION_CHANNEL_ID = "mafza_emergency_execution"
         private const val NOTIFICATION_ID = 1001
+        private const val COMMAND_AUDIT_DETAILS_LIMIT = 240
     }
 }
