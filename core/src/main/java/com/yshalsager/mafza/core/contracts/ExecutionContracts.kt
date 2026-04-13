@@ -59,10 +59,10 @@ object RunStatusDeriver {
                 RunStatus.COMPLETED_FAILED
             }
 
-            // If no step succeeded but all outcomes are non-failing skips, treat run as successful.
+            // If no step succeeded and all outcomes are skips, treat run as failed.
             step_statuses.all {
                 it == StepStatus.SKIPPED_UNAVAILABLE || it == StepStatus.SKIPPED_DRY_RUN
-            } -> RunStatus.COMPLETED_SUCCESS
+            } -> RunStatus.COMPLETED_FAILED
 
             else -> RunStatus.COMPLETED_FAILED
         }
