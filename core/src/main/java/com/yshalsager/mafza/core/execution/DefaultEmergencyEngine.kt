@@ -6,6 +6,7 @@ import com.yshalsager.mafza.core.contracts.EmergencyStep
 import com.yshalsager.mafza.core.contracts.ExecutionMode
 import com.yshalsager.mafza.core.contracts.PolicyBoundEmergencyStep
 import com.yshalsager.mafza.core.contracts.ActionId
+import com.yshalsager.mafza.core.contracts.IdentifiedEmergencyStep
 import com.yshalsager.mafza.core.contracts.ActionPolicy
 import com.yshalsager.mafza.core.contracts.ActionPolicyKeys
 import com.yshalsager.mafza.core.contracts.RunId
@@ -250,7 +251,7 @@ class DefaultEmergencyEngine(
         planned_steps.forEach { planned_step ->
             val policy_step = planned_step.step as? PolicyBoundEmergencyStep
             val policy = planned_step.policy
-            val step_id = planned_step.step::class.simpleName ?: "unknown_step"
+            val step_id = step_id_for(planned_step.step)
 
             if (branch_blocked) {
                 val skipped_result = StepResult(
@@ -325,6 +326,12 @@ class DefaultEmergencyEngine(
         synchronized(event_lock) {
             on_event(event)
         }
+    }
+
+    private fun step_id_for(step: EmergencyStep): String {
+        val identified_step = step as? IdentifiedEmergencyStep
+        if (identified_step != null) return identified_step.step_id
+        return step::class.simpleName ?: "unknown_step"
     }
 
     private fun build_step_execution_plan(

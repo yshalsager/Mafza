@@ -7,6 +7,7 @@ import android.telephony.SmsManager
 import androidx.core.content.ContextCompat
 import com.yshalsager.mafza.core.contracts.ActionId
 import com.yshalsager.mafza.core.contracts.ExecutionMode
+import com.yshalsager.mafza.core.contracts.IdentifiedEmergencyStep
 import com.yshalsager.mafza.core.contracts.PolicyBoundEmergencyStep
 import com.yshalsager.mafza.core.contracts.StepBranch
 import com.yshalsager.mafza.core.contracts.StepContext
@@ -23,15 +24,16 @@ class SmsRecipientStep(
     private val sms_sender: (suspend (recipient: String, message: String) -> Result<Unit>)? = null,
     private val message_renderer: ((StepContext, RunStepState) -> String)? = null,
     private val now_provider: () -> Long = { System.currentTimeMillis() }
-) : PolicyBoundEmergencyStep {
+) : PolicyBoundEmergencyStep, IdentifiedEmergencyStep {
     override val action_id: ActionId = ActionId.SEND_SMS
     override val branch: StepBranch = StepBranch.NOTIFY
+    override val step_id: String = "sms_recipient_${recipient_index + 1}"
 
     override suspend fun execute(ctx: StepContext): StepResult {
         val started_at = now_provider()
         if (recipient.isBlank()) {
             return StepResult(
-                step_id = step_id(),
+                step_id = step_id,
                 status = StepStatus.FAILED,
                 details = "empty_recipient",
                 started_at_epoch_ms = started_at,
@@ -41,7 +43,7 @@ class SmsRecipientStep(
 
         if (ctx.mode == ExecutionMode.DRY_RUN) {
             return StepResult(
-                step_id = step_id(),
+                step_id = step_id,
                 status = StepStatus.SKIPPED_DRY_RUN,
                 details = "dry_run_sms_${redact_recipient(recipient)}",
                 started_at_epoch_ms = started_at,
@@ -51,7 +53,7 @@ class SmsRecipientStep(
 
         if (!has_sms_permission()) {
             return StepResult(
-                step_id = step_id(),
+                step_id = step_id,
                 status = StepStatus.SKIPPED_UNAVAILABLE,
                 details = "missing_send_sms_permission",
                 started_at_epoch_ms = started_at,
@@ -67,7 +69,7 @@ class SmsRecipientStep(
         }
         if (send_result == null) {
             return StepResult(
-                step_id = step_id(),
+                step_id = step_id,
                 status = StepStatus.TIMED_OUT,
                 details = "sms_timeout_${timeout_seconds}s_${redact_recipient(recipient)}",
                 started_at_epoch_ms = started_at,
@@ -78,7 +80,7 @@ class SmsRecipientStep(
         return send_result.fold(
             onSuccess = {
                 StepResult(
-                    step_id = step_id(),
+                    step_id = step_id,
                     status = StepStatus.SUCCESS,
                     details = "sms_sent_${redact_recipient(recipient)}",
                     started_at_epoch_ms = started_at,
@@ -88,7 +90,7 @@ class SmsRecipientStep(
             onFailure = { throwable ->
                 if (throwable is SmsServiceUnavailableException) {
                     return@fold StepResult(
-                        step_id = step_id(),
+                        step_id = step_id,
                         status = StepStatus.SKIPPED_UNAVAILABLE,
                         details = "sms_service_unavailable",
                         started_at_epoch_ms = started_at,
@@ -96,7 +98,7 @@ class SmsRecipientStep(
                     )
                 }
                 StepResult(
-                    step_id = step_id(),
+                    step_id = step_id,
                     status = StepStatus.FAILED,
                     details = throwable.message ?: "sms_send_failed_${redact_recipient(recipient)}",
                     started_at_epoch_ms = started_at,
@@ -105,8 +107,6 @@ class SmsRecipientStep(
             }
         )
     }
-
-    private fun step_id(): String = "sms_recipient_${recipient_index + 1}"
 
     private fun render_message(step_context: StepContext): String {
         val override_renderer = message_renderer

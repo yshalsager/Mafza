@@ -6,6 +6,7 @@ import com.yshalsager.mafza.core.contracts.ActionPolicyKeys
 import com.yshalsager.mafza.core.contracts.EmergencyProfile
 import com.yshalsager.mafza.core.contracts.EmergencyStep
 import com.yshalsager.mafza.core.contracts.ExecutionMode
+import com.yshalsager.mafza.core.contracts.IdentifiedEmergencyStep
 import com.yshalsager.mafza.core.contracts.PolicyBoundEmergencyStep
 import com.yshalsager.mafza.core.contracts.RunStatus
 import com.yshalsager.mafza.core.contracts.StepBranch
@@ -412,6 +413,61 @@ class DefaultEmergencyEngineTest {
     }
 
     @Test
+    fun `destructive branch starts only after notify branch completes`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val execution_order = mutableListOf<String>()
+
+        val profile = EmergencyProfile(
+            action_policies = listOf(
+                ActionPolicy(
+                    action_id = ActionId.NOTIFY_MESSAGE_APP,
+                    enabled = true,
+                    required = false,
+                    continue_on_failure = true,
+                    execution_order = 1
+                ),
+                ActionPolicy(
+                    action_id = ActionId.DELETE_PATHS,
+                    enabled = true,
+                    required = false,
+                    continue_on_failure = true,
+                    execution_order = 1
+                )
+            )
+        )
+
+        val engine = DefaultEmergencyEngine(
+            scope = CoroutineScope(dispatcher + Job()),
+            profile_reader = { profile },
+            steps_provider = {
+                listOf(
+                    TestPolicyStep(
+                        action_id = ActionId.NOTIFY_MESSAGE_APP,
+                        branch = StepBranch.NOTIFY
+                    ) {
+                        delay(50)
+                        execution_order += "notify_message_app"
+                        success_result("notify_message_app")
+                    },
+                    TestPolicyStep(
+                        action_id = ActionId.DELETE_PATHS,
+                        branch = StepBranch.DESTRUCTIVE
+                    ) {
+                        execution_order += "delete_paths"
+                        success_result("delete_paths")
+                    }
+                )
+            },
+            cancel_window_millis_provider = { 1L }
+        )
+
+        engine.start(TriggerSource.SHORTCUT, ExecutionMode.LIVE)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("notify_message_app", "delete_paths"), execution_order)
+    }
+
+    @Test
     fun `disabled action policy skips step execution`() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val events = CopyOnWriteArrayList<EngineEvent>()
@@ -733,12 +789,127 @@ class DefaultEmergencyEngineTest {
         assertEquals("disabled_by_policy", step_completed.step_result.details)
     }
 
+    @Test
+    fun `branch-stop synthesized result keeps identified step id`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val events = CopyOnWriteArrayList<EngineEvent>()
+        val profile = EmergencyProfile(
+            action_policies = listOf(
+                ActionPolicy(
+                    action_id = ActionId.NOTIFY_MESSAGE_APP,
+                    policy_key = "binding:notify_message_app:first",
+                    enabled = true,
+                    required = true,
+                    continue_on_failure = false,
+                    execution_order = 1
+                ),
+                ActionPolicy(
+                    action_id = ActionId.NOTIFY_MESSAGE_APP,
+                    policy_key = "binding:notify_message_app:second",
+                    enabled = true,
+                    required = false,
+                    continue_on_failure = true,
+                    execution_order = 2
+                )
+            )
+        )
+
+        val engine = DefaultEmergencyEngine(
+            scope = CoroutineScope(dispatcher + Job()),
+            profile_reader = { profile },
+            steps_provider = {
+                listOf(
+                    IdentifiedTestPolicyStep(
+                        action_id = ActionId.NOTIFY_MESSAGE_APP,
+                        policy_key = "binding:notify_message_app:first",
+                        branch = StepBranch.NOTIFY,
+                        step_id = "notify_binding_first"
+                    ) {
+                        failed_result("required_failure")
+                    },
+                    IdentifiedTestPolicyStep(
+                        action_id = ActionId.NOTIFY_MESSAGE_APP,
+                        policy_key = "binding:notify_message_app:second",
+                        branch = StepBranch.NOTIFY,
+                        step_id = "notify_binding_second"
+                    ) {
+                        success_result("unexpected_success")
+                    }
+                )
+            },
+            cancel_window_millis_provider = { 1L },
+            on_event = { events += it }
+        )
+
+        engine.start(TriggerSource.SHORTCUT, ExecutionMode.LIVE)
+        testScheduler.advanceUntilIdle()
+
+        val skipped_result = events.filterIsInstance<EngineEvent.StepCompleted>()
+            .map { it.step_result }
+            .first { it.details == "skipped_by_branch_stop" }
+        assertEquals("notify_binding_second", skipped_result.step_id)
+    }
+
+    @Test
+    fun `exception fallback keeps identified step id`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val events = CopyOnWriteArrayList<EngineEvent>()
+        val profile = EmergencyProfile(
+            action_policies = listOf(
+                ActionPolicy(
+                    action_id = ActionId.NOTIFY_MESSAGE_APP,
+                    policy_key = "binding:notify_message_app:primary",
+                    enabled = true,
+                    required = true,
+                    continue_on_failure = true,
+                    execution_order = 1
+                )
+            )
+        )
+
+        val engine = DefaultEmergencyEngine(
+            scope = CoroutineScope(dispatcher + Job()),
+            profile_reader = { profile },
+            steps_provider = {
+                listOf(
+                    IdentifiedTestPolicyStep(
+                        action_id = ActionId.NOTIFY_MESSAGE_APP,
+                        policy_key = "binding:notify_message_app:primary",
+                        branch = StepBranch.NOTIFY,
+                        step_id = "notify_binding_primary"
+                    ) {
+                        throw IllegalStateException("boom")
+                    }
+                )
+            },
+            cancel_window_millis_provider = { 1L },
+            on_event = { events += it }
+        )
+
+        engine.start(TriggerSource.SHORTCUT, ExecutionMode.LIVE)
+        testScheduler.advanceUntilIdle()
+
+        val failed_result = events.filterIsInstance<EngineEvent.StepCompleted>().last().step_result
+        assertEquals("notify_binding_primary", failed_result.step_id)
+        assertEquals(StepStatus.FAILED, failed_result.status)
+    }
+
     private class TestPolicyStep(
         override val action_id: ActionId,
         override val policy_key: String = ActionPolicyKeys.for_action(action_id),
         override val branch: StepBranch,
         private val block: suspend () -> StepResult
     ) : PolicyBoundEmergencyStep {
+        override suspend fun execute(ctx: StepContext): StepResult = block()
+    }
+
+    private class IdentifiedTestPolicyStep(
+        override val action_id: ActionId,
+        override val policy_key: String = ActionPolicyKeys.for_action(action_id),
+        override val branch: StepBranch,
+        override val step_id: String,
+        private val block: suspend () -> StepResult
+    ) : PolicyBoundEmergencyStep, IdentifiedEmergencyStep {
         override suspend fun execute(ctx: StepContext): StepResult = block()
     }
 

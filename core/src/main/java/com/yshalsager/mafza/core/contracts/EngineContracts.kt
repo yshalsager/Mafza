@@ -9,6 +9,10 @@ interface EmergencyStep {
     suspend fun execute(ctx: StepContext): StepResult
 }
 
+interface IdentifiedEmergencyStep : EmergencyStep {
+    val step_id: String
+}
+
 enum class StepBranch {
     NOTIFY,
     DESTRUCTIVE,

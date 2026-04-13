@@ -19,6 +19,7 @@ import com.yshalsager.mafza.emergency.location.OpenCellIdLookupClient
 import com.yshalsager.mafza.emergency.location.RealOpenCellIdLookupClient
 import com.yshalsager.mafza.core.contracts.EmergencyStep
 import com.yshalsager.mafza.core.contracts.ExecutionMode
+import com.yshalsager.mafza.core.contracts.IdentifiedEmergencyStep
 import com.yshalsager.mafza.core.contracts.StepContext
 import com.yshalsager.mafza.core.contracts.StepResult
 import com.yshalsager.mafza.core.contracts.StepStatus
@@ -38,12 +39,14 @@ class LocationStep(
     private val open_cell_lookup_client: OpenCellIdLookupClient = RealOpenCellIdLookupClient(),
     private val cell_lookup_reader: (suspend (String, CellSnapshot) -> LocationSnapshot?)? = null,
     private val now_provider: () -> Long = { System.currentTimeMillis() }
-) : EmergencyStep {
+) : IdentifiedEmergencyStep {
+    override val step_id: String = STEP_ID
+
     override suspend fun execute(ctx: StepContext): StepResult {
         val started_at = now_provider()
         if (ctx.mode == ExecutionMode.DRY_RUN) {
             return StepResult(
-                step_id = STEP_ID,
+                step_id = step_id,
                 status = StepStatus.SKIPPED_DRY_RUN,
                 details = "dry_run_location",
                 started_at_epoch_ms = started_at,
@@ -53,7 +56,7 @@ class LocationStep(
 
         if (!has_location_permission()) {
             return StepResult(
-                step_id = STEP_ID,
+                step_id = step_id,
                 status = StepStatus.SKIPPED_UNAVAILABLE,
                 details = "missing_location_permission",
                 started_at_epoch_ms = started_at,
@@ -64,7 +67,7 @@ class LocationStep(
         val providers = resolve_providers()
         if (providers.isEmpty()) {
             return StepResult(
-                step_id = STEP_ID,
+                step_id = step_id,
                 status = StepStatus.SKIPPED_UNAVAILABLE,
                 details = "no_location_provider_enabled",
                 started_at_epoch_ms = started_at,
@@ -91,7 +94,7 @@ class LocationStep(
         if (location_outcome == null) {
             val finished_at = now_provider()
             return StepResult(
-                step_id = STEP_ID,
+                step_id = step_id,
                 status = StepStatus.TIMED_OUT,
                 details = "location_timeout_${timeout_seconds}s",
                 started_at_epoch_ms = started_at,
@@ -102,7 +105,7 @@ class LocationStep(
         if (location_snapshot == null) {
             val finished_at = now_provider()
             return StepResult(
-                step_id = STEP_ID,
+                step_id = step_id,
                 status = StepStatus.SKIPPED_UNAVAILABLE,
                 details = "location_unavailable",
                 started_at_epoch_ms = started_at,
@@ -114,7 +117,7 @@ class LocationStep(
         run_step_state.set_location(location_with_cell)
         val finished_at = now_provider()
         return StepResult(
-            step_id = STEP_ID,
+            step_id = step_id,
             status = StepStatus.SUCCESS,
             details = details_for(location_with_cell),
             started_at_epoch_ms = started_at,

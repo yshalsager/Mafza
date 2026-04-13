@@ -3,6 +3,7 @@ package com.yshalsager.mafza.emergency.steps
 import com.yshalsager.mafza.emergency.shell.PrivilegedCommandExecutor
 import com.yshalsager.mafza.core.contracts.ActionId
 import com.yshalsager.mafza.core.contracts.ExecutionMode
+import com.yshalsager.mafza.core.contracts.IdentifiedEmergencyStep
 import com.yshalsager.mafza.core.contracts.PolicyBoundEmergencyStep
 import com.yshalsager.mafza.core.contracts.StepBranch
 import com.yshalsager.mafza.core.contracts.StepContext
@@ -13,9 +14,10 @@ import kotlinx.coroutines.withTimeoutOrNull
 class UninstallAppsStep(
     private val command_executor: PrivilegedCommandExecutor,
     private val now_provider: () -> Long = { System.currentTimeMillis() }
-) : PolicyBoundEmergencyStep {
+) : PolicyBoundEmergencyStep, IdentifiedEmergencyStep {
     override val action_id: ActionId = ActionId.UNINSTALL_APPS
     override val branch: StepBranch = StepBranch.DESTRUCTIVE
+    override val step_id: String = STEP_ID
 
     override suspend fun execute(ctx: StepContext): StepResult {
         val started_at = now_provider()
@@ -128,7 +130,7 @@ class UninstallAppsStep(
         started_at: Long
     ): StepResult {
         return StepResult(
-            step_id = STEP_ID,
+            step_id = step_id,
             status = status,
             details = details,
             started_at_epoch_ms = started_at,

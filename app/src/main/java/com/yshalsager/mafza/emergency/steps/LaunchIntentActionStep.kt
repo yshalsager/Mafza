@@ -8,6 +8,7 @@ import android.net.Uri
 import com.yshalsager.mafza.core.contracts.ActionId
 import com.yshalsager.mafza.core.contracts.ActionPolicyKeys
 import com.yshalsager.mafza.core.contracts.ExecutionMode
+import com.yshalsager.mafza.core.contracts.IdentifiedEmergencyStep
 import com.yshalsager.mafza.core.contracts.IntentActionSpec
 import com.yshalsager.mafza.core.contracts.PolicyBoundEmergencyStep
 import com.yshalsager.mafza.core.contracts.StepBranch
@@ -30,16 +31,17 @@ class LaunchIntentActionStep(
     private val intent_resolver: ((Intent) -> Boolean)? = null,
     private val intent_launcher: (suspend (Intent) -> Result<Unit>)? = null,
     private val now_provider: () -> Long = { System.currentTimeMillis() }
-) : PolicyBoundEmergencyStep {
+) : PolicyBoundEmergencyStep, IdentifiedEmergencyStep {
     override val action_id: ActionId = ActionId.LAUNCH_INTENT
     override val policy_key: String = ActionPolicyKeys.for_intent(intent_action_spec.id)
     override val branch: StepBranch = StepBranch.NOTIFY
+    override val step_id: String = "launch_intent_${intent_action_spec.id}"
 
     override suspend fun execute(ctx: StepContext): StepResult {
         val started_at = now_provider()
         if (!intent_action_spec.enabled) {
             return StepResult(
-                step_id = step_id(),
+                step_id = step_id,
                 status = StepStatus.SKIPPED_UNAVAILABLE,
                 details = "intent_step_disabled",
                 started_at_epoch_ms = started_at,
@@ -48,7 +50,7 @@ class LaunchIntentActionStep(
         }
         if (ctx.mode == ExecutionMode.DRY_RUN) {
             return StepResult(
-                step_id = step_id(),
+                step_id = step_id,
                 status = StepStatus.SKIPPED_DRY_RUN,
                 details = "dry_run_intent",
                 started_at_epoch_ms = started_at,
@@ -61,7 +63,7 @@ class LaunchIntentActionStep(
         val can_resolve = resolve_intent(intent)
         if (!can_resolve) {
             return StepResult(
-                step_id = step_id(),
+                step_id = step_id,
                 status = StepStatus.SKIPPED_UNAVAILABLE,
                 details = "intent_unresolvable",
                 started_at_epoch_ms = started_at,
@@ -80,7 +82,7 @@ class LaunchIntentActionStep(
         val finished_at = now_provider()
         if (launch_result == null) {
             return StepResult(
-                step_id = step_id(),
+                step_id = step_id,
                 status = StepStatus.TIMED_OUT,
                 details = "intent_timeout_${timeout_seconds}s",
                 started_at_epoch_ms = started_at,
@@ -91,7 +93,7 @@ class LaunchIntentActionStep(
         val launch_error = launch_result.exceptionOrNull()
         if (launch_error == null) {
             return StepResult(
-                step_id = step_id(),
+                step_id = step_id,
                 status = StepStatus.SUCCESS,
                 details = "intent_launched",
                 started_at_epoch_ms = started_at,
@@ -100,7 +102,7 @@ class LaunchIntentActionStep(
         }
         if (launch_error is ActivityNotFoundException) {
             return StepResult(
-                step_id = step_id(),
+                step_id = step_id,
                 status = StepStatus.SKIPPED_UNAVAILABLE,
                 details = "intent_activity_not_found",
                 started_at_epoch_ms = started_at,
@@ -108,7 +110,7 @@ class LaunchIntentActionStep(
             )
         }
         return StepResult(
-            step_id = step_id(),
+            step_id = step_id,
             status = StepStatus.FAILED,
             details = launch_error.message ?: "intent_launch_failed",
             started_at_epoch_ms = started_at,
@@ -137,8 +139,6 @@ class LaunchIntentActionStep(
             "LaunchIntentActionStep requires app_context when no test overrides are provided"
         }
     }
-
-    private fun step_id(): String = "launch_intent_${intent_action_spec.id}"
 
     private fun build_intent(): Intent {
         val action = intent_action_spec.intent_action?.ifBlank { null } ?: Intent.ACTION_VIEW
