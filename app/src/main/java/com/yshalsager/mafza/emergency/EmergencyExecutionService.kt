@@ -161,7 +161,14 @@ class EmergencyExecutionService : Service() {
                 update_notification(getString(R.string.emergency_notification_cancel_window))
             }
 
-            is EngineEvent.IgnoredDuplicateTrigger -> Unit
+            is EngineEvent.IgnoredDuplicateTrigger -> {
+                Log.i(
+                    LOG_TAG,
+                    "IGNORED_DUPLICATE_TRIGGER active_run_id=${event.active_run_id} requested_trigger=${event.requested_trigger} requested_mode=${event.requested_mode}"
+                )
+                val run_trace = active_runs[event.active_run_id] ?: return
+                run_trace.step_results += duplicate_trigger_step_result(event)
+            }
 
             is EngineEvent.StepCompleted -> {
                 val run_trace = active_runs[event.run_id] ?: return
@@ -269,6 +276,17 @@ class EmergencyExecutionService : Service() {
             step_id.startsWith("self_uninstall") -> ActionId.SELF_UNINSTALL
             else -> null
         }
+    }
+
+    private fun duplicate_trigger_step_result(event: EngineEvent.IgnoredDuplicateTrigger): StepResult {
+        val now_epoch_ms = System.currentTimeMillis()
+        return StepResult(
+            step_id = DUPLICATE_TRIGGER_STEP_ID,
+            status = StepStatus.SKIPPED_UNAVAILABLE,
+            details = "requested_trigger=${event.requested_trigger},requested_mode=${event.requested_mode}",
+            started_at_epoch_ms = now_epoch_ms,
+            finished_at_epoch_ms = now_epoch_ms
+        )
     }
 
     private fun parse_trigger_source(raw: String?): TriggerSource {
@@ -388,5 +406,6 @@ class EmergencyExecutionService : Service() {
         private const val NOTIFICATION_CHANNEL_ID = "mafza_emergency_execution"
         private const val NOTIFICATION_ID = 1001
         private const val COMMAND_AUDIT_DETAILS_LIMIT = 240
+        private const val DUPLICATE_TRIGGER_STEP_ID = "ignored_duplicate_trigger"
     }
 }
