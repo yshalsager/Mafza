@@ -55,7 +55,7 @@ internal fun create_empty_intent_action(default_execution_order: Int): EditableI
         activity_name = "",
         extras_json = "",
         flags_multiline = "",
-        timeout_seconds = "20",
+        timeout_seconds = "0",
         continue_on_failure = true,
         enabled = true,
         policy_enabled = true,
@@ -68,7 +68,11 @@ internal fun create_empty_intent_action(default_execution_order: Int): EditableI
 
 internal fun normalize_intent_action_orders(intent_actions: List<EditableIntentAction>): List<EditableIntentAction> {
     return intent_actions.mapIndexed { index, intent_action ->
-        intent_action.copy(policy_execution_order = (index + 1).toString())
+        if (intent_action.policy_mode == ProfilePolicyMode.OVERRIDE) {
+            intent_action
+        } else {
+            intent_action.copy(policy_execution_order = (index + 1).toString())
+        }
     }
 }
 
@@ -130,7 +134,11 @@ internal fun create_empty_telegram_bot_action(default_execution_order: Int): Edi
 
 internal fun normalize_telegram_bot_action_orders(actions: List<EditableTelegramBotAction>): List<EditableTelegramBotAction> {
     return actions.mapIndexed { index, action ->
-        action.copy(policy_execution_order = (index + 1).toString())
+        if (action.policy_mode == ProfilePolicyMode.OVERRIDE) {
+            action
+        } else {
+            action.copy(policy_execution_order = (index + 1).toString())
+        }
     }
 }
 
@@ -148,7 +156,11 @@ internal fun move_telegram_bot_action(
 
 internal fun normalize_message_binding_orders(bindings: List<EditableMessageBinding>): List<EditableMessageBinding> {
     return bindings.mapIndexed { index, binding ->
-        binding.copy(policy_execution_order = (index + 1).toString())
+        if (binding.policy_mode == ProfilePolicyMode.OVERRIDE) {
+            binding
+        } else {
+            binding.copy(policy_execution_order = (index + 1).toString())
+        }
     }
 }
 
@@ -276,8 +288,8 @@ internal fun build_profile_intent_actions(intent_actions: List<EditableIntentAct
             flags = split_multiline_values(intent_action.flags_multiline),
             timeout_seconds = parse_int_or_fallback(
                 value = intent_action.timeout_seconds,
-                fallback = 20,
-                min_value = PROFILE_MIN_STEP_TIMEOUT_SECONDS,
+                fallback = 0,
+                min_value = PROFILE_MIN_INTENT_STEP_TIMEOUT_SECONDS,
                 max_value = PROFILE_MAX_INTENT_TIMEOUT_SECONDS
             ),
             continue_on_failure = intent_action.continue_on_failure,

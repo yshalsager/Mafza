@@ -451,6 +451,21 @@ internal fun IntentActionEditorSection(
         modifier = Modifier.fillMaxWidth(),
         singleLine = true
     )
+    OutlinedTextField(
+        value = intent_action.timeout_seconds,
+        onValueChange = { value ->
+            on_update_intent_actions(
+                intent_actions.update_item(row.item_index) { current_intent ->
+                    current_intent.copy(timeout_seconds = value)
+                }
+            )
+            on_mark_profile_dirty()
+        },
+        label = { Text(text = stringResource(R.string.profile_intent_action_timeout_label)) },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+    )
     TextButton(
         onClick = on_test_intent,
         modifier = Modifier.fillMaxWidth()
