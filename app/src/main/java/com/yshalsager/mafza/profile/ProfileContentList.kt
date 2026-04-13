@@ -109,10 +109,12 @@ internal fun ProfileContentList(
         }
         item {
             ActionExecutionPreviewCard(
+                sms_recipients = sms_recipients,
                 action_policy_rows = action_policy_rows,
                 telegram_bot_actions = telegram_bot_actions,
                 message_app_bindings = message_app_bindings,
-                intent_actions = intent_actions
+                intent_actions = intent_actions,
+                self_uninstall_enabled = self_uninstall_enabled
             )
         }
         if (show_reorder_helper) {

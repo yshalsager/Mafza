@@ -115,6 +115,8 @@
     <string name='profile_execution_preview_binding_item'>تطبيق مراسلة: %1$s</string>
     <string name='profile_execution_preview_telegram_item'>بوت تيليجرام: %1$s</string>
     <string name='profile_execution_preview_intent_item'>نية: %1$s</string>
+    <string name='profile_execution_preview_location_item'>تحديد الموقع</string>
+    <string name='profile_execution_preview_sms_item'>مستلم SMS رقم %1$d</string>
     <string name='profile_execution_preview_unset_binding'>حزمة غير محددة</string>
     <string name='profile_execution_preview_unset_telegram_bot'>إجراء بوت بدون اسم</string>
     <string name='profile_execution_preview_unset_intent'>نية بدون اسم</string>
@@ -336,6 +338,7 @@
     <string name='profile_validation_telegram_timeout'>%1$d قيمة/قيم مهلة بوت تيليجرام غير صالحة.</string>
     <string name='profile_validation_telegram_order'>%1$d قيمة/قيم ترتيب سياسة بوت تيليجرام غير صالحة.</string>
     <string name='profile_validation_intent_step_timeout'>%1$d قيمة/قيم مهلة خطوة نية غير صالحة.</string>
+    <string name='profile_validation_intent_unresolvable_required'>%1$d إجراء/إجراءات نية مطلوبة غير قابلة للحل.</string>
     <string name='profile_validation_intent_order'>%1$d قيمة/قيم ترتيب سياسة النية غير صالحة.</string>
     <string name='preflight_title'>فحص الجاهزية</string>
     <string name='preflight_ready'>جاهز للتنفيذ المباشر.</string>

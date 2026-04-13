@@ -1,5 +1,6 @@
 package com.yshalsager.mafza.profile
 
+import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.yshalsager.mafza.R
@@ -18,11 +19,13 @@ internal data class ProfileValidationResult(
     val first_invalid_telegram_timeout_index: Int,
     val first_invalid_telegram_policy_order_index: Int,
     val first_invalid_intent_timeout_index: Int,
+    val first_required_unresolvable_intent_index: Int,
     val first_invalid_intent_policy_order_index: Int
 )
 
 @Composable
 internal fun build_profile_validation_result(
+    app_context: Context,
     cancel_window_error: String?,
     location_timeout_error: String?,
     sms_timeout_error: String?,
@@ -59,14 +62,21 @@ internal fun build_profile_validation_result(
         !(has_argv || has_allowed_raw_shell)
     }
     val invalid_binding_package_count = message_app_bindings.count { binding ->
-        binding.enabled && binding.package_name.trim().isEmpty()
+        if (!binding.enabled) return@count false
+        val package_name = binding.package_name.trim()
+        package_name.isEmpty() || !PROFILE_PACKAGE_NAME_REGEX.matches(package_name)
     }
     val invalid_binding_policy_order_count = message_app_bindings.count { binding ->
         binding.policy_mode == ProfilePolicyMode.OVERRIDE &&
             !is_int_in_range(binding.policy_execution_order, PROFILE_MIN_POLICY_ORDER, PROFILE_MAX_POLICY_ORDER)
     }
     val invalid_telegram_config_count = telegram_bot_actions.count { action ->
-        action.enabled && (action.bot_token.trim().isEmpty() || action.chat_id.trim().isEmpty())
+        if (!action.enabled) return@count false
+        val token = action.bot_token.trim()
+        val chat_id = action.chat_id.trim()
+        !TELEGRAM_BOT_TOKEN_REGEX.matches(token) ||
+            (!TELEGRAM_CHAT_ID_NUMERIC_REGEX.matches(chat_id) &&
+                !TELEGRAM_CHAT_ID_USERNAME_REGEX.matches(chat_id))
     }
     val invalid_telegram_timeout_count = telegram_bot_actions.count { action ->
         !is_int_in_range(action.timeout_seconds, PROFILE_MIN_STEP_TIMEOUT_SECONDS, PROFILE_MAX_TELEGRAM_TIMEOUT_SECONDS)
@@ -76,11 +86,20 @@ internal fun build_profile_validation_result(
             !is_int_in_range(action.policy_execution_order, PROFILE_MIN_POLICY_ORDER, PROFILE_MAX_POLICY_ORDER)
     }
     val invalid_intent_timeout_count = intent_actions.count { intent_action ->
-        !is_int_in_range(intent_action.timeout_seconds, PROFILE_MIN_STEP_TIMEOUT_SECONDS, PROFILE_MAX_INTENT_TIMEOUT_SECONDS)
+        !is_int_in_range(
+            intent_action.timeout_seconds,
+            PROFILE_MIN_INTENT_STEP_TIMEOUT_SECONDS,
+            PROFILE_MAX_INTENT_TIMEOUT_SECONDS
+        )
     }
     val invalid_intent_policy_order_count = intent_actions.count { intent_action ->
         intent_action.policy_mode == ProfilePolicyMode.OVERRIDE &&
             !is_int_in_range(intent_action.policy_execution_order, PROFILE_MIN_POLICY_ORDER, PROFILE_MAX_POLICY_ORDER)
+    }
+    val required_unresolvable_intent_count = intent_actions.count { intent_action ->
+        intent_action.enabled &&
+            intent_action.policy_required &&
+            test_intent_action(app_context, intent_action) != "resolvable"
     }
 
     val first_invalid_uninstall_package_index = uninstall_packages.indexOfFirst { package_name ->
@@ -100,14 +119,21 @@ internal fun build_profile_validation_result(
         !(has_argv || has_allowed_raw_shell)
     }
     val first_invalid_binding_package_index = message_app_bindings.indexOfFirst { binding ->
-        binding.enabled && binding.package_name.trim().isEmpty()
+        if (!binding.enabled) return@indexOfFirst false
+        val package_name = binding.package_name.trim()
+        package_name.isEmpty() || !PROFILE_PACKAGE_NAME_REGEX.matches(package_name)
     }
     val first_invalid_binding_policy_order_index = message_app_bindings.indexOfFirst { binding ->
         binding.policy_mode == ProfilePolicyMode.OVERRIDE &&
             !is_int_in_range(binding.policy_execution_order, PROFILE_MIN_POLICY_ORDER, PROFILE_MAX_POLICY_ORDER)
     }
     val first_invalid_telegram_config_index = telegram_bot_actions.indexOfFirst { action ->
-        action.enabled && (action.bot_token.trim().isEmpty() || action.chat_id.trim().isEmpty())
+        if (!action.enabled) return@indexOfFirst false
+        val token = action.bot_token.trim()
+        val chat_id = action.chat_id.trim()
+        !TELEGRAM_BOT_TOKEN_REGEX.matches(token) ||
+            (!TELEGRAM_CHAT_ID_NUMERIC_REGEX.matches(chat_id) &&
+                !TELEGRAM_CHAT_ID_USERNAME_REGEX.matches(chat_id))
     }
     val first_invalid_telegram_timeout_index = telegram_bot_actions.indexOfFirst { action ->
         !is_int_in_range(action.timeout_seconds, PROFILE_MIN_STEP_TIMEOUT_SECONDS, PROFILE_MAX_TELEGRAM_TIMEOUT_SECONDS)
@@ -117,11 +143,20 @@ internal fun build_profile_validation_result(
             !is_int_in_range(action.policy_execution_order, PROFILE_MIN_POLICY_ORDER, PROFILE_MAX_POLICY_ORDER)
     }
     val first_invalid_intent_timeout_index = intent_actions.indexOfFirst { intent_action ->
-        !is_int_in_range(intent_action.timeout_seconds, PROFILE_MIN_STEP_TIMEOUT_SECONDS, PROFILE_MAX_INTENT_TIMEOUT_SECONDS)
+        !is_int_in_range(
+            intent_action.timeout_seconds,
+            PROFILE_MIN_INTENT_STEP_TIMEOUT_SECONDS,
+            PROFILE_MAX_INTENT_TIMEOUT_SECONDS
+        )
     }
     val first_invalid_intent_policy_order_index = intent_actions.indexOfFirst { intent_action ->
         intent_action.policy_mode == ProfilePolicyMode.OVERRIDE &&
             !is_int_in_range(intent_action.policy_execution_order, PROFILE_MIN_POLICY_ORDER, PROFILE_MAX_POLICY_ORDER)
+    }
+    val first_required_unresolvable_intent_index = intent_actions.indexOfFirst { intent_action ->
+        intent_action.enabled &&
+            intent_action.policy_required &&
+            test_intent_action(app_context, intent_action) != "resolvable"
     }
 
     val issues = buildList {
@@ -277,6 +312,17 @@ internal fun build_profile_validation_result(
                 )
             )
         }
+        if (required_unresolvable_intent_count > 0) {
+            add(
+                ProfileValidationIssue(
+                    key = ProfileValidationIssueKey.INTENT_UNRESOLVABLE_REQUIRED,
+                    message = stringResource(
+                        R.string.profile_validation_intent_unresolvable_required,
+                        required_unresolvable_intent_count
+                    )
+                )
+            )
+        }
     }
 
     return ProfileValidationResult(
@@ -291,6 +337,11 @@ internal fun build_profile_validation_result(
         first_invalid_telegram_timeout_index = first_invalid_telegram_timeout_index,
         first_invalid_telegram_policy_order_index = first_invalid_telegram_policy_order_index,
         first_invalid_intent_timeout_index = first_invalid_intent_timeout_index,
+        first_required_unresolvable_intent_index = first_required_unresolvable_intent_index,
         first_invalid_intent_policy_order_index = first_invalid_intent_policy_order_index
     )
 }
+
+private val TELEGRAM_BOT_TOKEN_REGEX = Regex("^\\d{6,}:[A-Za-z0-9_-]{20,}$")
+private val TELEGRAM_CHAT_ID_NUMERIC_REGEX = Regex("^-?\\d{4,}$")
+private val TELEGRAM_CHAT_ID_USERNAME_REGEX = Regex("^@[A-Za-z0-9_]{5,64}$")

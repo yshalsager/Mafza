@@ -366,6 +366,7 @@ internal fun ProfileScreen(
         row.action_id == ActionId.ADVANCED_SHELL_COMMANDS && row.enabled
     }
     val validation_result = build_profile_validation_result(
+        app_context = app_context,
         cancel_window_error = cancel_window_error,
         location_timeout_error = location_timeout_error,
         sms_timeout_error = sms_timeout_error,
@@ -396,6 +397,7 @@ internal fun ProfileScreen(
     val first_invalid_telegram_timeout_index = validation_result.first_invalid_telegram_timeout_index
     val first_invalid_telegram_policy_order_index = validation_result.first_invalid_telegram_policy_order_index
     val first_invalid_intent_timeout_index = validation_result.first_invalid_intent_timeout_index
+    val first_required_unresolvable_intent_index = validation_result.first_required_unresolvable_intent_index
     val first_invalid_intent_policy_order_index = validation_result.first_invalid_intent_policy_order_index
     val can_save = validation_issues.isEmpty() && !is_saving
     val current_editor_signature = build_profile_editor_signature(
@@ -616,6 +618,13 @@ internal fun ProfileScreen(
             ProfileValidationIssueKey.INTENT_STEP_TIMEOUT_INVALID -> {
                 group_expansion[ProfileActionGroup.APP_INTENT] = true
                 val target_intent = intent_actions.getOrNull(first_invalid_intent_timeout_index)
+                if (target_intent != null) {
+                    editing_action_row_id = "intent:${target_intent.id}"
+                }
+            }
+            ProfileValidationIssueKey.INTENT_UNRESOLVABLE_REQUIRED -> {
+                group_expansion[ProfileActionGroup.APP_INTENT] = true
+                val target_intent = intent_actions.getOrNull(first_required_unresolvable_intent_index)
                 if (target_intent != null) {
                     editing_action_row_id = "intent:${target_intent.id}"
                 }
