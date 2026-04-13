@@ -1,10 +1,14 @@
 package com.yshalsager.mafza.core.data.backup
 
 import com.yshalsager.mafza.core.contracts.BackupPayload
+import com.yshalsager.mafza.core.contracts.ActionId
 import com.yshalsager.mafza.core.contracts.EmergencyProfile
 import com.yshalsager.mafza.core.contracts.ExecutionMode
+import com.yshalsager.mafza.core.contracts.RunHistoryCommandAuditExportItem
 import com.yshalsager.mafza.core.contracts.RunHistoryExportItem
+import com.yshalsager.mafza.core.contracts.RunHistoryStepExportItem
 import com.yshalsager.mafza.core.contracts.RunStatus
+import com.yshalsager.mafza.core.contracts.StepStatus
 import com.yshalsager.mafza.core.contracts.TriggerSource
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -51,6 +55,8 @@ class EncryptedBackupServiceRestoreSemanticsTest {
         assertEquals(1, export_history_calls)
         assertEquals(listOf(payload.profile), written_profiles)
         assertEquals(listOf(payload.history), replaced_histories)
+        assertEquals("notify_sms_0", replaced_histories.first().first().steps.first().step_id)
+        assertEquals(ActionId.ADVANCED_SHELL_COMMANDS, replaced_histories.first().first().command_audits.first().action_id)
     }
 
     @Test
@@ -134,7 +140,27 @@ class EncryptedBackupServiceRestoreSemanticsTest {
             completed_at_epoch_ms = started_at + 1L,
             trigger = TriggerSource.MANUAL_IN_APP,
             mode = ExecutionMode.LIVE,
-            status = RunStatus.COMPLETED_SUCCESS
+            status = RunStatus.COMPLETED_SUCCESS,
+            steps = listOf(
+                RunHistoryStepExportItem(
+                    step_index = 0,
+                    step_id = "notify_sms_0",
+                    status = StepStatus.SUCCESS,
+                    details = "sent",
+                    started_at_epoch_ms = started_at,
+                    finished_at_epoch_ms = started_at + 1L
+                )
+            ),
+            command_audits = listOf(
+                RunHistoryCommandAuditExportItem(
+                    step_index = 0,
+                    command_index = 0,
+                    action_id = ActionId.ADVANCED_SHELL_COMMANDS,
+                    target_summary = "svc data disable",
+                    exit_code = 0,
+                    stderr_snippet = null
+                )
+            )
         )
     }
 }

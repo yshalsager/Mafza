@@ -76,7 +76,27 @@ class BackupPayloadSerializationTest {
                     completed_at_epoch_ms = 200L,
                     trigger = TriggerSource.MANUAL_IN_APP,
                     mode = ExecutionMode.DRY_RUN,
-                    status = RunStatus.COMPLETED_PARTIAL
+                    status = RunStatus.COMPLETED_PARTIAL,
+                    steps = listOf(
+                        RunHistoryStepExportItem(
+                            step_index = 0,
+                            step_id = "notify_sms_0",
+                            status = StepStatus.SUCCESS,
+                            details = "sent",
+                            started_at_epoch_ms = 101L,
+                            finished_at_epoch_ms = 150L
+                        )
+                    ),
+                    command_audits = listOf(
+                        RunHistoryCommandAuditExportItem(
+                            step_index = 1,
+                            command_index = 0,
+                            action_id = ActionId.ADVANCED_SHELL_COMMANDS,
+                            target_summary = "svc data disable",
+                            exit_code = 0,
+                            stderr_snippet = null
+                        )
+                    )
                 )
             )
         )
@@ -90,6 +110,10 @@ class BackupPayloadSerializationTest {
         assertTrue(decoded.include_history)
         assertEquals(1, decoded.history.size)
         assertEquals("run-1", decoded.history.first().run_id)
+        assertEquals(1, decoded.history.first().steps.size)
+        assertEquals("notify_sms_0", decoded.history.first().steps.first().step_id)
+        assertEquals(1, decoded.history.first().command_audits.size)
+        assertEquals(ActionId.ADVANCED_SHELL_COMMANDS, decoded.history.first().command_audits.first().action_id)
         assertEquals("notify_1", decoded.profile.action_bindings.single().binding_id)
         assertEquals("binding:notify_message_app:notify_1", decoded.profile.action_policies.single().policy_key)
         assertEquals("intent_1", decoded.profile.intent_actions.single().id)

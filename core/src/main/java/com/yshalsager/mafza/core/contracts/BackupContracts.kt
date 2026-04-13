@@ -10,7 +10,29 @@ data class RunHistoryExportItem(
     val completed_at_epoch_ms: Long,
     val trigger: TriggerSource,
     val mode: ExecutionMode,
-    val status: RunStatus
+    val status: RunStatus,
+    val steps: List<RunHistoryStepExportItem> = emptyList(),
+    val command_audits: List<RunHistoryCommandAuditExportItem> = emptyList()
+)
+
+@Serializable
+data class RunHistoryStepExportItem(
+    val step_index: Int,
+    val step_id: String,
+    val status: StepStatus,
+    val details: String?,
+    val started_at_epoch_ms: Long,
+    val finished_at_epoch_ms: Long
+)
+
+@Serializable
+data class RunHistoryCommandAuditExportItem(
+    val step_index: Int,
+    val command_index: Int,
+    val action_id: ActionId,
+    val target_summary: String,
+    val exit_code: Int?,
+    val stderr_snippet: String?
 )
 
 @Serializable
