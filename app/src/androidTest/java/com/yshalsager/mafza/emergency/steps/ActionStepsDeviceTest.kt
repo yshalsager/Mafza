@@ -1,8 +1,6 @@
 package com.yshalsager.mafza.emergency.steps
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.yshalsager.mafza.core.contracts.ActionBinding
@@ -146,16 +144,13 @@ class ActionStepsDeviceTest {
     @Test
     fun sms_recipient_step_skips_when_send_sms_permission_not_granted() = runBlocking {
         val app_context = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
-        revoke_send_sms_permission(package_name = app_context.packageName)
-
-        val permission_granted = app_context.checkSelfPermission(Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED
-        assumeTrue("SEND_SMS permission should be revoked for this test", !permission_granted)
 
         val step = SmsRecipientStep(
             app_context = app_context,
             run_step_state = RunStepState(),
             recipient = "+20123456789",
-            recipient_index = 0
+            recipient_index = 0,
+            has_sms_permission_checker = { false }
         )
 
         val result = step.execute(test_step_context())
@@ -228,14 +223,6 @@ class ActionStepsDeviceTest {
             }
             ?.activityInfo
             ?.packageName
-    }
-
-    private fun revoke_send_sms_permission(package_name: String) {
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val pfd = instrumentation.uiAutomation.executeShellCommand(
-            "pm revoke $package_name ${Manifest.permission.SEND_SMS}"
-        )
-        pfd.close()
     }
 
     private fun test_step_context(
