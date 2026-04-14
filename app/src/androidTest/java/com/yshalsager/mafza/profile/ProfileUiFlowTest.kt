@@ -62,7 +62,7 @@ class ProfileUiFlowTest {
         compose_rule.onNodeWithContentDescription(add_action_label).performClick()
 
         compose_rule.onNodeWithText(choose_group_title).assertIsDisplayed()
-        compose_rule.onAllNodesWithText(communication_group_label)[1].performClick()
+        compose_rule.onNodeWithText(communication_group_label).performClick()
 
         compose_rule.onNodeWithText(choose_type_title).assertIsDisplayed()
         compose_rule.onAllNodesWithText(sms_type_label)[0].performClick()

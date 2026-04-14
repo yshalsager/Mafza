@@ -1,10 +1,12 @@
 package com.yshalsager.mafza.emergency
 
 import android.app.ActivityManager
+import android.app.Instrumentation
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ShortcutManager
+import android.os.ParcelFileDescriptor
 import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -43,7 +45,8 @@ class EmergencyTriggerSurfacesTest {
 
     @Before
     fun set_up(): Unit = runBlocking {
-        val app_context = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val app_context = instrumentation.targetContext.applicationContext
         profile_store = ProfileDataStoreFactory.create_profile_store(
             context = app_context,
             profile_cipher = AndroidKeystoreProfileCipher()
@@ -53,6 +56,10 @@ class EmergencyTriggerSurfacesTest {
         package_manager = app_context.packageManager
         activity_manager = app_context.getSystemService(ActivityManager::class.java)
         app_package_name = app_context.packageName
+        grant_runtime_permissions(
+            instrumentation = instrumentation,
+            package_name = app_package_name
+        )
         original_profile = profile_store.read_profile()
         main_activity_scenario = ActivityScenario.launch(MainActivity::class.java).also { scenario ->
             scenario.moveToState(Lifecycle.State.RESUMED)
@@ -257,5 +264,30 @@ class EmergencyTriggerSurfacesTest {
             delete_allowlist = emptyList(),
             advanced_shell_commands = emptyList()
         )
+    }
+
+    private fun grant_runtime_permissions(instrumentation: Instrumentation, package_name: String) {
+        val permissions = listOf(
+            "android.permission.ACCESS_FINE_LOCATION",
+            "android.permission.ACCESS_COARSE_LOCATION",
+            "android.permission.ACCESS_BACKGROUND_LOCATION",
+            "android.permission.READ_PHONE_STATE",
+            "android.permission.SEND_SMS"
+        )
+        permissions.forEach { permission ->
+            execute_shell_command(
+                instrumentation = instrumentation,
+                command = "pm grant $package_name $permission"
+            )
+        }
+    }
+
+    private fun execute_shell_command(instrumentation: Instrumentation, command: String) {
+        val descriptor = instrumentation.uiAutomation.executeShellCommand(command)
+        descriptor.safe_close()
+    }
+
+    private fun ParcelFileDescriptor.safe_close() {
+        runCatching { close() }
     }
 }
